@@ -45,7 +45,7 @@ and the API diff will be printed:
 
 <img src="docs/img/diff.jpg" alt="colored output of diffing a public api">
 
-You can also manually do a diff by writing the full list of items to a file for two different versions of your library and then do a regular `diff` between the files.
+For more info on diffing, please read [DIFFING.md](./docs/DIFFING.md).
 
 ## Expected output
 
