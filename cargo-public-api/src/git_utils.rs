@@ -1,6 +1,7 @@
 use std::{
+    io,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Output},
 };
 
 use anyhow::{anyhow, Context, Result};
@@ -8,10 +9,12 @@ use anyhow::{anyhow, Context, Result};
 /// Synchronously do a `git checkout` of `commit`.
 /// Returns the name of the original branch/commit.
 pub(crate) fn git_checkout(commit: &str, git_root: &Path, quiet: bool) -> Result<String> {
-    if git_is_dirty(git_root)? {
+    let git_diff = git_diff_output(git_root)?;
+    if !git_diff.stderr.is_empty() {
         return Err(anyhow!(
-            "Refusing to `git checkout {}` because your work tree is dirty (`git diff` produces output). Please `git commit` or `git stash` your changes and try again.",
+            "Refusing to `git checkout {}` because your work tree is dirty (`git diff` says `{}`). Please `git commit` or `git stash` your changes and try again.",
             commit,
+            String::from_utf8_lossy(&git_diff.stdout),
         ));
     }
 
@@ -33,12 +36,11 @@ pub(crate) fn git_checkout(commit: &str, git_root: &Path, quiet: bool) -> Result
     }
 }
 
-pub(crate) fn git_is_dirty(git_root: &Path) -> Result<bool> {
+pub(crate) fn git_diff_output(git_root: &Path) -> io::Result<Output> {
     let mut command = Command::new("git");
     command.current_dir(git_root);
     command.args(["diff"]);
-    let output = command.output()?;
-    Ok(output.stdout.is_empty() && output.stderr.is_empty())
+    command.output()
 }
 
 /// Goes up the chain of parents and looks for a `.git` dir.
