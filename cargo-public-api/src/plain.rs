@@ -25,22 +25,22 @@ impl Plain {
 
         print_items_with_header(
             w,
-            "Removed items from the public API\n\
-             =================================",
+            "// Removed items from the public API\n\
+             // =================================",
             &diff.removed,
             |w, item| {
                 if use_color {
-                    writeln!(w, "-{}", color_item(item))
+                    writeln!(w, "- {}", color_item(item))
                 } else {
-                    writeln!(w, "-{}", item)
+                    writeln!(w, "- {}", item)
                 }
             },
         )?;
 
         print_items_with_header(
             w,
-            "Changed items in the public API\n\
-             ===============================",
+            "// Changed items in the public API\n\
+             // ===============================",
             &diff.changed,
             |w, changed_item| {
                 if use_color {
@@ -49,26 +49,26 @@ impl Plain {
                     let diff_slice = diff::slice(old_tokens.as_slice(), new_tokens.as_slice());
                     writeln!(
                         w,
-                        "-{}\n+{}",
+                        "- {}\n+ {}",
                         color_item_with_diff(&diff_slice, true),
                         color_item_with_diff(&diff_slice, false),
                     )
                 } else {
-                    writeln!(w, "-{}\n+{}", changed_item.old, changed_item.new)
+                    writeln!(w, "- {}\n+ {}", changed_item.old, changed_item.new)
                 }
             },
         )?;
 
         print_items_with_header(
             w,
-            "Added items to the public API\n\
-             =============================",
+            "// Added items to the public API\n\
+             // =============================",
             &diff.added,
             |w, item| {
                 if use_color {
-                    writeln!(w, "+{}", color_item(item))
+                    writeln!(w, "+ {}", color_item(item))
                 } else {
-                    writeln!(w, "+{}", item)
+                    writeln!(w, "+ {}", item)
                 }
             },
         )?;
@@ -149,7 +149,7 @@ pub fn print_items_with_header<T>(
 ) -> Result<()> {
     writeln!(w, "{}", header)?;
     if items.is_empty() {
-        writeln!(w, "(none)")?;
+        writeln!(w, "// (none)")?;
     } else {
         for item in items {
             print_fn(w, item)?;
