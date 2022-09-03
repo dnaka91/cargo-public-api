@@ -12,7 +12,7 @@ pub(crate) fn git_checkout(commit: &str, git_root: &Path, quiet: bool) -> Result
     let git_diff_stdout = git_diff_output(git_root)?.stdout;
     if !git_diff_stdout.is_empty() {
         return Err(anyhow!(
-            "Refusing to `git checkout {}` because your work tree is dirty (`git diff` says `{}`). Please `git commit` or `git stash` your changes and try again.",
+            "Refusing to `git checkout {}` because your work tree is dirty (`git diff` says \n```\n{}```\n). Please `git commit` or `git stash` your changes and try again.",
             commit,
             String::from_utf8_lossy(&git_diff_stdout),
         ));
