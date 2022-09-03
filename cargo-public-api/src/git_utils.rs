@@ -8,6 +8,13 @@ use anyhow::{anyhow, Context, Result};
 /// Synchronously do a `git checkout` of `commit`.
 /// Returns the name of the original branch/commit.
 pub(crate) fn git_checkout(commit: &str, git_root: &Path, quiet: bool) -> Result<String> {
+    if git_is_dirty(git_root)? {
+        return Err(anyhow!(
+            "Refusing to `git checkout {}` because your work tree is dirty (`git diff` produces output). Please `git commit` or `git stash` your changes and try again.",
+            commit,
+        ));
+    }
+
     let original_branch = current_branch_or_commit(&git_root)?;
 
     let mut command = Command::new("git");
@@ -24,6 +31,14 @@ pub(crate) fn git_checkout(commit: &str, git_root: &Path, quiet: bool) -> Result
             commit,
         ))
     }
+}
+
+pub(crate) fn git_is_dirty(git_root: &Path) -> Result<bool> {
+    let mut command = Command::new("git");
+    command.current_dir(git_root);
+    command.args(["diff"]);
+    let output = command.output()?;
+    Ok(output.stdout.is_empty() && output.stderr.is_empty())
 }
 
 /// Goes up the chain of parents and looks for a `.git` dir.

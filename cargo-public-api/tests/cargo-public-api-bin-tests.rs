@@ -148,6 +148,13 @@ fn diff_public_items_detached_head() {
 fn diff_public_items_with_dirty_tree_fails() {
     let test_repo = TestRepo::new();
 
+    // IMPORTANT: We must make a change that applies cleanly to BOTH commits we
+    // want to git checkout, because normally git allows that. So first checkout
+    // v0.1.1 so that we can make such a change.
+    let start_tag = "v0.1.0";
+    let end_tag = "v0.1.1";
+    test_repo.checkout(end_tag);
+
     // Make the tree dirty by appending a comment to src/lib.rs
     let mut lib_rs_path = test_repo.path.path().to_owned();
     lib_rs_path.push("src/lib.rs");
@@ -165,10 +172,12 @@ fn diff_public_items_with_dirty_tree_fails() {
     cmd.current_dir(&test_repo.path);
     cmd.arg("--color=never");
     cmd.arg("--diff-git-checkouts");
-    cmd.arg("v0.2.0");
-    cmd.arg("v0.3.0");
+    cmd.arg(start_tag);
+    cmd.arg(end_tag);
     cmd.assert()
-        .stderr(contains("commit your changes or stash them"))
+        .stderr(contains(
+            "Please `git commit` or `git stash` your changes and try again",
+        ))
         .failure();
 }
 
@@ -597,6 +606,11 @@ fn cargo_public_api_with_features() -> Result<(), Box<dyn std::error::Error>> {
 
 /// A git repository that lives during the duration of a test. Having each test
 /// have its own git repository to test with makes tests runnable concurrently.
+///
+/// You can create a test-repo locally on your machine by running
+/// ```bash
+/// ./scripts/create-test-git-repo.sh /tmp/test-repo
+/// ```
 struct TestRepo {
     path: tempfile::TempDir,
 }
@@ -611,5 +625,14 @@ impl TestRepo {
 
     fn path(&self) -> &Path {
         self.path.path()
+    }
+
+    fn checkout(&self, commit: &str) {
+        let mut cmd = std::process::Command::new("git");
+        cmd.current_dir(&self.path);
+        cmd.arg("checkout");
+        cmd.arg(commit);
+        let output = cmd.output().unwrap();
+        assert!(output.status.success());
     }
 }
