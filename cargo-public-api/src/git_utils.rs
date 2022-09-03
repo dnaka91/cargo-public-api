@@ -9,12 +9,12 @@ use anyhow::{anyhow, Context, Result};
 /// Synchronously do a `git checkout` of `commit`.
 /// Returns the name of the original branch/commit.
 pub(crate) fn git_checkout(commit: &str, git_root: &Path, quiet: bool) -> Result<String> {
-    let git_diff = git_diff_output(git_root)?;
-    if !git_diff.stderr.is_empty() {
+    let git_diff_stdout = git_diff_output(git_root)?.stdout;
+    if !git_diff_stdout.is_empty() {
         return Err(anyhow!(
             "Refusing to `git checkout {}` because your work tree is dirty (`git diff` says `{}`). Please `git commit` or `git stash` your changes and try again.",
             commit,
-            String::from_utf8_lossy(&git_diff.stdout),
+            String::from_utf8_lossy(&git_diff_stdout),
         ));
     }
 
