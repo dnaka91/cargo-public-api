@@ -35,7 +35,7 @@ pub struct ItemIterator<'a> {
     /// borderline bug such as re-exports of foreign items like discussed in
     /// <https://github.com/rust-lang/rust/pull/99287#issuecomment-1186586518>)
     /// We do not report it to users, because they can't do anything about it.
-    missing_ids: Vec<&'a Id>,
+    missing_ids: Vec<Id>,
 
     /// `impl`s are a bit special. They do not need to be reachable by the crate
     /// root in order to matter. All that matters is that the trait and type
@@ -56,7 +56,7 @@ impl<'a> ItemIterator<'a> {
         };
 
         // Bootstrap with the root item
-        s.try_add_item_to_visit(&crate_.root, None);
+        s.try_add_item_to_visit(crate_.root.clone(), None);
 
         s
     }
@@ -72,24 +72,20 @@ impl<'a> ItemIterator<'a> {
             }
         }
         for id in add_after_borrow {
-            self.try_add_item_to_visit(id, Some(public_item.clone()));
+            self.try_add_item_to_visit(id.clone(), Some(public_item.clone()));
         }
 
         // Handle regular children of the item
-        for child in items_in_container(public_item.item).into_iter().flatten() {
+        for child in items_in_container(public_item.item) {
             self.try_add_item_to_visit(child, Some(public_item.clone()));
         }
     }
 
-    fn try_add_item_to_visit(
-        &mut self,
-        id: &'a Id,
-        parent: Option<Rc<IntermediatePublicItem<'a>>>,
-    ) {
+    fn try_add_item_to_visit(&mut self, id: Id, parent: Option<Rc<IntermediatePublicItem<'a>>>) {
         eprintln!("try {id:?}");
-        match self.crate_.index.get(id) {
+        match self.crate_.index.get(&id) {
             Some(item) => self.maybe_add_item_to_visit(item, parent),
-            None => self.add_missing_id(id),
+            None => self.add_missing_id(id.clone()),
         }
     }
 
@@ -98,7 +94,7 @@ impl<'a> ItemIterator<'a> {
         item: &'a Item,
         parent: Option<Rc<IntermediatePublicItem<'a>>>,
     ) {
-        let iddd= &item.name;
+        let iddd = &item.name;
         eprintln!("maybe {iddd:?}");
         // We try to inline glob imports, but that might fail, and we want to
         // keep track of when that happens.
@@ -126,7 +122,7 @@ impl<'a> ItemIterator<'a> {
                 }) = self.crate_.index.get(mod_id)
                 {
                     for item in items {
-                        self.try_add_item_to_visit(item, parent.clone());
+                        self.try_add_item_to_visit(item.clone(), parent.clone());
                     }
                     glob_import_inlined = true;
                 }
@@ -172,7 +168,7 @@ impl<'a> ItemIterator<'a> {
                     {
                         match self.crate_.index.get(imported_id) {
                             Some(imported_item) => item = imported_item,
-                            None => self.add_missing_id(imported_id),
+                            None => self.add_missing_id(imported_id.clone()),
                         }
                     }
                 }
@@ -189,7 +185,7 @@ impl<'a> ItemIterator<'a> {
         self.items_left.push(public_item);
     }
 
-    fn add_missing_id(&mut self, id: &'a Id) {
+    fn add_missing_id(&mut self, id: Id) {
         self.missing_ids.push(id);
     }
 }
@@ -236,18 +232,29 @@ fn find_all_impls(crate_: &Crate, options: Options) -> Impls {
 
 /// Some items contain other items, which is relevant for analysis. Keep track
 /// of such relationships.
-fn items_in_container(item: &Item) -> Option<&Vec<Id>> {
+fn items_in_container(item: &Item) -> Vec<Id> {
+    let mut items = vec![];
     match &item.inner {
-        ItemEnum::Module(m) => Some(&m.items),
-        ItemEnum::Union(u) => Some(&u.fields),
-        ItemEnum::Struct(s) => Some(&s.fields),
-        ItemEnum::Enum(e) => Some(&e.variants),
-        ItemEnum::Trait(t) => Some(&t.items),
-        ItemEnum::Impl(i) => Some(&i.items),
-        ItemEnum::Variant(rustdoc_types::Variant::Struct(ids)) => Some(ids),
+        ItemEnum::Module(m) => items.extend(m.items.clone()),
+        ItemEnum::Union(u) => {
+            items.extend(u.fields.clone());
+            items.extend(u.impls.clone());
+        }
+        ItemEnum::Struct(s) => {
+            items.extend(s.fields.clone());
+            items.extend(s.impls.clone());
+        }
+        ItemEnum::Enum(e) => {
+            items.extend(e.variants.clone());
+            items.extend(e.impls.clone());
+        }
+        ItemEnum::Trait(t) => items.extend(t.items.clone()),
+        ItemEnum::Impl(i) => items.extend(i.items.clone()),
+        ItemEnum::Variant(rustdoc_types::Variant::Struct(ids)) => items.extend(ids.clone()),
         // TODO: `ItemEnum::Variant(rustdoc_types::Variant::Tuple(ids)) => Some(ids),` when https://github.com/rust-lang/rust/issues/92945 is fixed
-        _ => None,
+        _ => {}
     }
+    items
 }
 
 pub fn public_api_in_crate(crate_: &Crate, options: Options) -> super::PublicApi {

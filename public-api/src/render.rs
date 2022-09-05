@@ -171,7 +171,7 @@ fn render_impl(impl_: &Impl) -> Vec<Token> {
     } else {
         output.extend(render_type(&impl_.for_));
     }
-    output.extend(vec![Token::symbol("{"), Token::symbol("{")]);
+    output.extend(vec![ws!(), Token::symbol("{"), Token::symbol("}")]);
     output
 }
 
