@@ -19,7 +19,6 @@ use crate::tokens::Token;
 #[allow(clippy::too_many_lines)]
 pub fn token_stream(item: &IntermediatePublicItem) -> Vec<Token> {
     let foo = &&item.item.name;
-    eprintln!("render {foo:?}");
     let mut tokens = vec![];
 
     for attr in &item.item.attrs {

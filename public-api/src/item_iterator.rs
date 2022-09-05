@@ -82,7 +82,6 @@ impl<'a> ItemIterator<'a> {
     }
 
     fn try_add_item_to_visit(&mut self, id: Id, parent: Option<Rc<IntermediatePublicItem<'a>>>) {
-        eprintln!("try {id:?}");
         match self.crate_.index.get(&id) {
             Some(item) => self.maybe_add_item_to_visit(item, parent),
             None => self.add_missing_id(id.clone()),
@@ -95,7 +94,6 @@ impl<'a> ItemIterator<'a> {
         parent: Option<Rc<IntermediatePublicItem<'a>>>,
     ) {
         let iddd = &item.name;
-        eprintln!("maybe {iddd:?}");
         // We try to inline glob imports, but that might fail, and we want to
         // keep track of when that happens.
         let mut glob_import_inlined = false;

@@ -1,3 +1,24 @@
 #[non_exhaustive] pub struct features::AStruct
+impl Any for AStruct {}
+impl Borrow<T> for AStruct {}
+impl BorrowMut<T> for AStruct {}
+impl From<T> for AStruct {}
+impl Into<U> for AStruct {}
+impl RefUnwindSafe for AStruct {}
+impl Send for AStruct {}
+impl Sync for AStruct {}
+impl TryFrom<U> for AStruct {}
+impl TryInto<U> for AStruct {}
+impl Unpin for AStruct {}
+impl UnwindSafe for AStruct {}
+pub fn features::AStruct::<<no_name>>::borrow(&self) -> &T
+pub fn features::AStruct::<<no_name>>::borrow_mut(&mut self) -> &mut T
+pub fn features::AStruct::<<no_name>>::from(t: T) -> T
+pub fn features::AStruct::<<no_name>>::into(self) -> U
+pub fn features::AStruct::<<no_name>>::try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error>
+pub fn features::AStruct::<<no_name>>::try_into(self) -> Result<U, <U as TryFrom<T>>::Error>
+pub fn features::AStruct::<<no_name>>::type_id(&self) -> TypeId
 pub mod features
 pub struct field features::AStruct::feature_c: ()
+pub type features::AStruct::<<no_name>>::Error = <U as TryFrom<T>>::Error
+pub type features::AStruct::<<no_name>>::Error = Infallible

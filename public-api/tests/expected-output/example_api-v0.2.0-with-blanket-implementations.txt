@@ -1,4 +1,37 @@
 #[non_exhaustive] pub struct example_api::Struct
+impl Any for Struct {}
+impl Any for StructV2 {}
+impl Borrow<T> for Struct {}
+impl Borrow<T> for StructV2 {}
+impl BorrowMut<T> for Struct {}
+impl BorrowMut<T> for StructV2 {}
+impl Debug for Struct {}
+impl From<T> for Struct {}
+impl From<T> for StructV2 {}
+impl Into<U> for Struct {}
+impl Into<U> for StructV2 {}
+impl RefUnwindSafe for Struct {}
+impl RefUnwindSafe for StructV2 {}
+impl Send for Struct {}
+impl Send for StructV2 {}
+impl Sync for Struct {}
+impl Sync for StructV2 {}
+impl TryFrom<U> for Struct {}
+impl TryFrom<U> for StructV2 {}
+impl TryInto<U> for Struct {}
+impl TryInto<U> for StructV2 {}
+impl Unpin for Struct {}
+impl Unpin for StructV2 {}
+impl UnwindSafe for Struct {}
+impl UnwindSafe for StructV2 {}
+pub fn example_api::Struct::<<no_name>>::borrow(&self) -> &T
+pub fn example_api::Struct::<<no_name>>::borrow_mut(&mut self) -> &mut T
+pub fn example_api::Struct::<<no_name>>::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
+pub fn example_api::Struct::<<no_name>>::from(t: T) -> T
+pub fn example_api::Struct::<<no_name>>::into(self) -> U
+pub fn example_api::Struct::<<no_name>>::try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error>
+pub fn example_api::Struct::<<no_name>>::try_into(self) -> Result<U, <U as TryFrom<T>>::Error>
+pub fn example_api::Struct::<<no_name>>::type_id(&self) -> TypeId
 pub fn example_api::Struct::borrow(&self) -> &T
 pub fn example_api::Struct::borrow_mut(&mut self) -> &mut T
 pub fn example_api::Struct::fmt(&self, f: &mut $crate::fmt::Formatter<'_>) -> $crate::fmt::Result
@@ -7,6 +40,13 @@ pub fn example_api::Struct::into(self) -> U
 pub fn example_api::Struct::try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error>
 pub fn example_api::Struct::try_into(self) -> Result<U, <U as TryFrom<T>>::Error>
 pub fn example_api::Struct::type_id(&self) -> TypeId
+pub fn example_api::StructV2::<<no_name>>::borrow(&self) -> &T
+pub fn example_api::StructV2::<<no_name>>::borrow_mut(&mut self) -> &mut T
+pub fn example_api::StructV2::<<no_name>>::from(t: T) -> T
+pub fn example_api::StructV2::<<no_name>>::into(self) -> U
+pub fn example_api::StructV2::<<no_name>>::try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error>
+pub fn example_api::StructV2::<<no_name>>::try_into(self) -> Result<U, <U as TryFrom<T>>::Error>
+pub fn example_api::StructV2::<<no_name>>::type_id(&self) -> TypeId
 pub fn example_api::StructV2::borrow(&self) -> &T
 pub fn example_api::StructV2::borrow_mut(&mut self) -> &mut T
 pub fn example_api::StructV2::from(t: T) -> T
@@ -20,7 +60,11 @@ pub struct example_api::StructV2
 pub struct field example_api::Struct::v1_field: usize
 pub struct field example_api::Struct::v2_field: usize
 pub struct field example_api::StructV2::field: usize
+pub type example_api::Struct::<<no_name>>::Error = <U as TryFrom<T>>::Error
+pub type example_api::Struct::<<no_name>>::Error = Infallible
 pub type example_api::Struct::Error = <U as TryFrom<T>>::Error
 pub type example_api::Struct::Error = Infallible
+pub type example_api::StructV2::<<no_name>>::Error = <U as TryFrom<T>>::Error
+pub type example_api::StructV2::<<no_name>>::Error = Infallible
 pub type example_api::StructV2::Error = <U as TryFrom<T>>::Error
 pub type example_api::StructV2::Error = Infallible
