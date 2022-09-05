@@ -86,6 +86,7 @@ impl<'a> ItemIterator<'a> {
         id: &'a Id,
         parent: Option<Rc<IntermediatePublicItem<'a>>>,
     ) {
+        eprintln!("try {id:?}");
         match self.crate_.index.get(id) {
             Some(item) => self.maybe_add_item_to_visit(item, parent),
             None => self.add_missing_id(id),
@@ -97,6 +98,8 @@ impl<'a> ItemIterator<'a> {
         item: &'a Item,
         parent: Option<Rc<IntermediatePublicItem<'a>>>,
     ) {
+        let iddd= &item.name;
+        eprintln!("maybe {iddd:?}");
         // We try to inline glob imports, but that might fail, and we want to
         // keep track of when that happens.
         let mut glob_import_inlined = false;
@@ -134,7 +137,7 @@ impl<'a> ItemIterator<'a> {
         // items directly. See [`ItemIterator::impls`] docs for more info. And
         // if we inlined a glob import earlier, we should not add the import
         // item itself. All other items we can go ahead and add.
-        if !glob_import_inlined && !matches!(item.inner, ItemEnum::Impl { .. }) {
+        if !glob_import_inlined {
             self.add_item_to_visit(item, parent);
         }
     }

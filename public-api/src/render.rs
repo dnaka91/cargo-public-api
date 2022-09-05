@@ -1,9 +1,9 @@
 use crate::intermediate_public_item::IntermediatePublicItem;
-use std::rc::Rc;
+use std::{rc::Rc, vec};
 
 use rustdoc_types::{
     Abi, Constant, FnDecl, FunctionPointer, GenericArg, GenericArgs, GenericBound, GenericParamDef,
-    GenericParamDefKind, Generics, Header, ItemEnum, MacroKind, Path, PolyTrait, Term, Type,
+    GenericParamDefKind, Generics, Header, Impl, ItemEnum, MacroKind, Path, PolyTrait, Term, Type,
     TypeBinding, TypeBindingKind, Variant, WherePredicate,
 };
 
@@ -18,6 +18,8 @@ use crate::tokens::Token;
 
 #[allow(clippy::too_many_lines)]
 pub fn token_stream(item: &IntermediatePublicItem) -> Vec<Token> {
+    let foo = &&item.item.name;
+    eprintln!("render {foo:?}");
     let mut tokens = vec![];
 
     for attr in &item.item.attrs {
@@ -81,7 +83,7 @@ pub fn token_stream(item: &IntermediatePublicItem) -> Vec<Token> {
             output
         }
         ItemEnum::TraitAlias(_) => render_simple(&["trait", "alias"], &item.path()),
-        ItemEnum::Impl(_) => render_simple(&["impl"], &item.path()),
+        ItemEnum::Impl(impl_) => render_impl(impl_),
         ItemEnum::Typedef(inner) => {
             let mut output = render_simple(&["type"], &item.path());
             output.extend(render_generics(&inner.generics));
@@ -155,6 +157,22 @@ pub fn token_stream(item: &IntermediatePublicItem) -> Vec<Token> {
     tokens.extend(inner_tokens);
 
     tokens
+}
+
+fn render_impl(impl_: &Impl) -> Vec<Token> {
+    let mut output = vec![Token::keyword("impl"), ws!()];
+    if let Some(trait_) = &impl_.trait_ {
+        output.push(Token::identifier(&trait_.name));
+        if let Some(args) = &trait_.args {
+            output.extend(render_generic_args(&args));
+        }
+        output.extend(vec![ws!(), Token::keyword("for"), ws!()]);
+        output.extend(render_type(&impl_.for_));
+    } else {
+        output.extend(render_type(&impl_.for_));
+    }
+    output.extend(vec![Token::symbol("{"), Token::symbol("{")]);
+    output
 }
 
 /// Our list of allowed attributes comes from
