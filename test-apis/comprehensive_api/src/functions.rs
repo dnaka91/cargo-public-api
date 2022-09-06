@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display};
 
 use crate::{
-    structs::{PrivateField, Tuple},
+    structs::{PrivateField, Tuple, Unit},
     traits::Simple,
     unions::Basic,
     RenamedPlain,
@@ -19,7 +19,7 @@ pub fn struct_arg(s: PrivateField) {
     println!("{}", s.x);
 }
 
-pub fn fn_arg(f: impl Fn(bool, RenamedPlain) -> bool, mut f_mut: impl FnMut() -> ()) {
+pub fn fn_arg(f: impl Fn(bool, RenamedPlain) -> bool, mut f_mut: impl FnMut()) {
     if f(false, RenamedPlain { x: 9 }) {
         f_mut();
     }
@@ -73,7 +73,9 @@ pub fn synthetic_arg(t: impl Simple) -> impl Simple {
     t
 }
 
-pub fn impl_multiple<T>(t: impl Simple + AsRef<T>) -> impl Simple {}
+pub fn impl_multiple<T>(t: impl Simple + AsRef<T>) -> impl Simple {
+    Unit
+}
 
 pub fn somewhere<T, U>(t: T, u: U)
 where
@@ -103,4 +105,6 @@ pub unsafe fn unsafe_fn() {}
 
 pub async fn async_fn() {}
 
-pub async fn async_fn_ret_bool() -> bool {}
+pub async fn async_fn_ret_bool() -> bool {
+    true
+}
