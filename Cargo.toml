@@ -9,7 +9,7 @@ members = [
     # High-level CLI for "rustdoc-json" and "public-api"
     "cargo-public-api",
 
-    # Contains a public API that aim so to contain all public API item and
+    # Contains a public API that aims to contain all public API item and
     # variants (with and without generics etc etc)
     "test-apis/comprehensive_api",
 ]
