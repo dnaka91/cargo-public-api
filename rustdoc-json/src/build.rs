@@ -1,3 +1,5 @@
+use crate::LogLevel;
+
 use super::BuildError;
 use super::BuildOptions;
 
@@ -15,7 +17,7 @@ const OVERRIDDEN_TOOLCHAIN: Option<&str> = option_env!("RUSTDOC_JSON_OVERRIDDEN_
 /// file.
 pub(crate) fn run_cargo_rustdoc(options: BuildOptions) -> Result<PathBuf, BuildError> {
     let mut cmd = cargo_rustdoc_command(&options);
-    if options.verbose {
+    if options.verbose() {
         eprintln!("Running {:?}", cmd);
     }
     let status = cmd.status()?;
@@ -136,7 +138,7 @@ impl Default for BuildOptions {
             toolchain: None,
             manifest_path: PathBuf::from("Cargo.toml"),
             target: None,
-            quiet: false,
+            log_level: false,
             verbose: false,
             no_default_features: false,
             all_features: false,
@@ -172,18 +174,23 @@ impl BuildOptions {
         self
     }
 
+    /// Whether or not to write extra debug info to stderr `--verbose`. Default: `false`
+    #[must_use]
+    pub fn log_level(mut self, log_level: LogLevel) -> Self {
+        self.log_level = log_level;
+        self
+    }
+
     /// Whether or not to pass `--quiet` to `cargo rustdoc`. Default: `false`
     #[must_use]
-    pub fn quiet(mut self, quiet: bool) -> Self {
-        self.quiet = quiet;
-        self
+    fn quiet(self) -> bool {
+        self.log_level == LogLevel::Quiet
     }
 
     /// Whether or not to write extra debug info to stderr `--verbose`. Default: `false`
     #[must_use]
-    pub fn verbose(mut self, verbose: bool) -> Self {
-        self.verbose = verbose;
-        self
+    fn verbose(self) -> bool {
+        self.log_level == LogLevel::Verbose
     }
 
     /// Whether or not to pass `--target` to `cargo rustdoc`. Default: `None`

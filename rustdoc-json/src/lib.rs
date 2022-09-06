@@ -50,6 +50,20 @@ pub enum BuildError {
     IoError(#[from] std::io::Error),
 }
 
+/// Different log levels.
+#[derive(Debug, PartialEq, Eq)]
+#[non_exhaustive]
+enum LogLevel {
+    /// Minimal output.
+    Quiet,
+
+    /// Default output.
+    Normal,
+
+    /// Verbose output.
+    Verbose,
+}
+
 /// Contains all options for [`crate::build()`].
 ///
 /// See [crate] for an example on how to use it.
@@ -58,8 +72,7 @@ pub struct BuildOptions {
     toolchain: Option<String>,
     manifest_path: std::path::PathBuf,
     target: Option<String>,
-    quiet: bool,
-    verbose: bool,
+    log_level: LogLevel,
     no_default_features: bool,
     all_features: bool,
     features: Vec<String>,
