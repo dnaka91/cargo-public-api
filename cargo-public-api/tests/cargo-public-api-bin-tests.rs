@@ -451,7 +451,7 @@ fn diff_public_items_missing_one_arg() {
 }
 
 #[test]
-fn verbose() {
+fn verbose_arg() {
     let mut cmd = Command::cargo_bin("cargo-public-api").unwrap();
     cmd.arg("--verbose");
     cmd.assert()

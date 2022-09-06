@@ -14,7 +14,11 @@ const OVERRIDDEN_TOOLCHAIN: Option<&str> = option_env!("RUSTDOC_JSON_OVERRIDDEN_
 /// Run `cargo rustdoc` to produce rustdoc JSON and return the path to the built
 /// file.
 pub(crate) fn run_cargo_rustdoc(options: BuildOptions) -> Result<PathBuf, BuildError> {
-    let status = cargo_rustdoc_command(&options).status()?;
+    let mut cmd = cargo_rustdoc_command(&options);
+    if options.verbose {
+        eprintln!("Running {:?}", cmd);
+    }
+    let status = cmd.status()?;
     if status.success() {
         rustdoc_json_path_for_manifest_path(
             options.manifest_path,
@@ -46,6 +50,7 @@ fn cargo_rustdoc_command(options: &BuildOptions) -> Command {
         all_features,
         features,
         package,
+        ..
     } = options;
     let mut command = Command::new("cargo");
 
@@ -132,6 +137,7 @@ impl Default for BuildOptions {
             manifest_path: PathBuf::from("Cargo.toml"),
             target: None,
             quiet: false,
+            verbose: false,
             no_default_features: false,
             all_features: false,
             features: vec![],
@@ -170,6 +176,13 @@ impl BuildOptions {
     #[must_use]
     pub fn quiet(mut self, quiet: bool) -> Self {
         self.quiet = quiet;
+        self
+    }
+
+    /// Whether or not to write extra debug info to stderr `--verbose`. Default: `false`
+    #[must_use]
+    pub fn verbose(mut self, verbose: bool) -> Self {
+        self.verbose = verbose;
         self
     }
 

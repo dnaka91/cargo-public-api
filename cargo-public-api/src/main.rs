@@ -367,6 +367,7 @@ fn collect_public_api_from_commit(
     let mut build_options = BuildOptions::default()
         .toolchain(args.toolchain.clone())
         .manifest_path(&args.manifest_path)
+        .verbose(args.verbose)
         .all_features(args.all_features)
         .no_default_features(args.no_default_features)
         .features(&args.features);
