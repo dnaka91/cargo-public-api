@@ -8,13 +8,11 @@ test_git_dir="/tmp/cargo-public-api-test-repo"
 [ -d "${test_git_dir}" ] || ./scripts/create-test-git-repo.sh "${test_git_dir}"
 
 build_for="
-    comprehensive_api
     comprehensive_api_proc_macro
     example_api-v0.2.0
 "
 
 output_for="
-    comprehensive_api
     comprehensive_api_proc_macro
 "
 
@@ -40,6 +38,11 @@ RUSTDOC_JSON_OVERRIDDEN_TOOLCHAIN_HACK=${toolchain} cargo run -p cargo-public-ap
       --manifest-path "public-api/Cargo.toml" \
       --color=never > \
       "cargo-public-api/tests/expected-output/public_api_list.txt"
+
+RUSTDOC_JSON_OVERRIDDEN_TOOLCHAIN_HACK=${toolchain} cargo run -p cargo-public-api -- \
+      --manifest-path "test-apis/comprehensive_api/Cargo.toml" \
+      --color=never > \
+      "public-api/tests/expected-output/comprehensive_api.txt"
 
 RUSTDOC_JSON_OVERRIDDEN_TOOLCHAIN_HACK=${toolchain} cargo run -p cargo-public-api -- \
       --manifest-path "${test_git_dir}/Cargo.toml" \
