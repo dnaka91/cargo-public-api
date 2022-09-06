@@ -8,15 +8,16 @@ members = [
 
     # High-level CLI for "rustdoc-json" and "public-api"
     "cargo-public-api",
+
+    # Contains a public API that aim so to contain all public API item and
+    # variants (with and without generics etc etc)
+    "test-apis/comprehensive_api",
 ]
 
 # Test APIs can't be part of the workspace because some test API crates use
 # different directories but the same name (e.g. `example_api`), which cargo does
 # not allow.
 exclude = [
-    # Contains a public API that aim so to contain all public API item and
-    # variants (with and without generics etc etc)
-    "test-apis/comprehensive_api",
 
     # Same as 'comprehensive_api', but for proc-macro stuff, because those needs
     # to be in a separate crate, see
