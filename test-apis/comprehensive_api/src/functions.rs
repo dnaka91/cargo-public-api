@@ -30,7 +30,7 @@ pub fn return_tuple() -> (bool, Basic) {
 }
 
 pub fn return_slice<'a>(input: &'a [usize]) -> &'a [usize] {
-    &input
+    input
 }
 
 pub fn return_raw_pointer(input: &usize) -> *const usize {

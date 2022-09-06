@@ -1,5 +1,5 @@
 #[no_mangle]
-#[link_section = ".custom"]
+//#[link_section = ".custom"]
 pub static NO_MANGLE_WITH_CUSTOM_LINK_SECTION: usize = 42;
 
 #[non_exhaustive]
