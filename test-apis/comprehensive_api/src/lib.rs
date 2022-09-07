@@ -10,7 +10,8 @@
     clippy::needless_pass_by_value,
     clippy::new_without_default,
     clippy::unused_async,
-    clippy::unused_self
+    clippy::unused_self,
+    clippy::unused_unit,
 )]
 
 pub extern crate rand;

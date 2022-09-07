@@ -18,15 +18,13 @@ members = [
     # https://stackoverflow.com/questions/56713877/why-do-proc-macros-have-to-be-defined-in-proc-macro-crate
     "test-apis/comprehensive_api_proc_macro",
 
-    # To test that we pass --cap-lints when building rustdoc JSON
-    "test-apis/lint_error",
-
     # Test for feature flags
     "test-apis/features",
 ]
 
-# These test APIs can't be part of the workspace, because they have same package
-# name (e.g. `example_api`), which cargo does not allow.
+# These test APIs can't be part of the workspace, either because they have the
+# same package name (e.g. `example_api`), which cargo does not allow, or because
+# the nature of test test API is such that e.g. linting would fail.
 exclude = [
     # Contains different versions of the same small API. Used mainly to test
     # test the API-diffing functionality of this library.
@@ -34,4 +32,7 @@ exclude = [
     "test-apis/example_api-v0.1.1",
     "test-apis/example_api-v0.2.0",
     "test-apis/example_api-v0.3.0",
+
+    # To test that we pass --cap-lints when building rustdoc JSON
+    "test-apis/lint_error",
 ]
