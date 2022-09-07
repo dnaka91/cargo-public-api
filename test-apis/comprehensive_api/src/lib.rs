@@ -1,3 +1,18 @@
+// Allow lints that prevents us from testing unidiomatic but valid public API
+// constructs
+#![allow(
+    unused_variables,
+    dead_code,
+    clippy::blacklisted_name,
+    clippy::missing_safety_doc,
+    clippy::must_use_candidate,
+    clippy::needless_lifetimes,
+    clippy::needless_pass_by_value,
+    clippy::new_without_default,
+    clippy::unused_async,
+    clippy::unused_self
+)]
+
 pub extern crate rand;
 // We expect rustdoc JSON to not contain these external items
 pub use rand::distributions::uniform::*;

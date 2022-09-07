@@ -8,12 +8,7 @@ members = [
 
     # High-level CLI for "rustdoc-json" and "public-api"
     "cargo-public-api",
-]
 
-# Test APIs can't be part of the workspace because some test API crates use
-# different directories but the same name (e.g. `example_api`), which cargo does
-# not allow.
-exclude = [
     # Contains a public API that aim so to contain all public API item and
     # variants (with and without generics etc etc)
     "test-apis/comprehensive_api",
@@ -23,16 +18,20 @@ exclude = [
     # https://stackoverflow.com/questions/56713877/why-do-proc-macros-have-to-be-defined-in-proc-macro-crate
     "test-apis/comprehensive_api_proc_macro",
 
+    # To test that we pass --cap-lints when building rustdoc JSON
+    "test-apis/lint_error",
+
+    # Test for feature flags
+    "test-apis/features",
+]
+
+# These test APIs can't be part of the workspace, because they have same package
+# name (e.g. `example_api`), which cargo does not allow.
+exclude = [
     # Contains different versions of the same small API. Used mainly to test
     # test the API-diffing functionality of this library.
     "test-apis/example_api-v0.1.0",
     "test-apis/example_api-v0.1.1",
     "test-apis/example_api-v0.2.0",
     "test-apis/example_api-v0.3.0",
-
-    # To test that we pass --cap-lints when building rustdoc JSON
-    "test-apis/lint_error",
-
-    # Test for feature flags
-    "test-apis/features",
 ]
