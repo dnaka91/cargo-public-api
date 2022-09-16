@@ -35,11 +35,11 @@ pub mod unions;
 pub use i32 as my_i32;
 pub use u32;
 
-pub extern crate example_api;
+// pub extern crate example_api;
 
-// We currently expect rustdoc JSON to not contain these external items, see
-// <https://github.com/rust-lang/rust/issues/99513>
-pub use example_api::*;
+// // We currently expect rustdoc JSON to not contain these external items, see
+// // <https://github.com/rust-lang/rust/issues/99513>
+// pub use example_api::*;
 
-// This explicitly exported item we expect to see in the rustdoc JSON however
-pub use example_api::StructV2;
+// // This explicitly exported item we expect to see in the rustdoc JSON however
+// pub use example_api::StructV2;
