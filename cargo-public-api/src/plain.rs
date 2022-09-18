@@ -82,27 +82,24 @@ fn color_item(item: &public_api::PublicItem) -> String {
 }
 
 fn color_token_stream<'a>(tokens: impl Iterator<Item = &'a Token>, bg: Option<Color>) -> String {
-    let output = String::new();
     tokens
         .map(|t| color_item_token(t, bg))
-        .fold(output, |mut output, painted_token| {
-            output.push_str(&painted_token.to_string());
-            output
-        })
+        .collect::<Vec<_>>()
+        .join("")
 }
 
 /// Color the given Token to render it with a nice syntax highlighting. The
 /// theme is inspired by dark+ in VS Code and uses the default colors from the
 /// terminal to always provide a readable and consistent color scheme.
 /// An extra color can be provided to be used as background color.
-fn color_item_token<'a>(token: &'a Token, bg: Option<Color>) -> Paint<&'a str> {
+fn color_item_token<'a>(token: &'a Token, bg: Option<Color>) -> String {
     let style = |color: Color, text: &'a str| {
-        let paint = Paint::new(text);
-        paint.fg(color);
+        let mut paint = Paint::new(text).fg(color);
         if let Some(bg) = bg {
-            paint.bg(bg);
+            paint = paint.bg(bg);
         }
-        paint
+        eprintln!("{:?}", paint);
+        paint.to_string()
     };
     #[allow(clippy::match_same_arms)]
     match token {
@@ -133,6 +130,7 @@ fn color_item_with_diff(diff_slice: &[diff::Result<&&Token>], is_old_item: bool)
                     .fg(Color::Fixed(9))
                     .bg(Color::Fixed(52))
                     .bold()
+                    .to_string()
             }),
             diff::Result::Both(&token, _) => Some(color_item_token(token, None)),
             diff::Result::Right(&token) => (!is_old_item).then(|| {
@@ -140,12 +138,11 @@ fn color_item_with_diff(diff_slice: &[diff::Result<&&Token>], is_old_item: bool)
                     .fg(Color::Fixed(10))
                     .bg(Color::Fixed(22))
                     .bold()
+                    .to_string()
             }),
         })
-        .fold(String::new(), |mut output, painted_token| {
-            output.push_str(&painted_token.to_string());
-            output
-        })
+        .collect::<Vec<_>>()
+        .join("")
 }
 
 pub fn print_items_with_header<T>(
