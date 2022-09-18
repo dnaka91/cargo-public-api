@@ -98,7 +98,6 @@ fn color_item_token<'a>(token: &'a Token, bg: Option<Color>) -> String {
         if let Some(bg) = bg {
             paint = paint.bg(bg);
         }
-        eprintln!("{:?}", paint);
         paint.to_string()
     };
     #[allow(clippy::match_same_arms)]
