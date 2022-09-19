@@ -1,11 +1,11 @@
 #![allow(clippy::unused_self)]
 use crate::intermediate_public_item::IntermediatePublicItem;
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 use rustdoc_types::{
     Abi, Constant, Crate, FnDecl, FunctionPointer, GenericArg, GenericArgs, GenericBound,
-    GenericParamDef, GenericParamDefKind, Generics, Header, Id, Item, ItemEnum, MacroKind, Path,
-    PolyTrait, StructKind, Term, Type, TypeBinding, TypeBindingKind, Variant, WherePredicate,
+    GenericParamDef, GenericParamDefKind, Generics, Header, Id, Impl, Item, ItemEnum, MacroKind,
+    Path, PolyTrait, StructKind, Term, Type, TypeBinding, TypeBindingKind, Variant, WherePredicate,
 };
 
 /// A simple macro to write `Token::Whitespace` in less characters.
@@ -24,6 +24,7 @@ enum Binding<'a> {
 
 pub struct RenderingContext<'a> {
     pub crate_: &'a Crate,
+    pub id_to_items: HashMap<&'a Id, Vec<Rc<IntermediatePublicItem<'a>>>>,
 }
 
 impl<'a> RenderingContext<'a> {
@@ -104,7 +105,7 @@ impl<'a> RenderingContext<'a> {
                 output
             }
             ItemEnum::TraitAlias(_) => self.render_simple(&["trait", "alias"], &item.path()),
-            ItemEnum::Impl(_) => self.render_simple(&["impl"], &item.path()),
+            ItemEnum::Impl(impl_) => self.render_impl(impl_),
             ItemEnum::Typedef(inner) => {
                 let mut output = self.render_simple(&["type"], &item.path());
                 output.extend(self.render_generics(&inner.generics));
@@ -458,7 +459,9 @@ impl<'a> RenderingContext<'a> {
     fn render_resolved_path(&self, path: &Path) -> Vec<Token> {
         let mut output = vec![];
         let name = &path.name;
-        if !name.is_empty() {
+        if let Some(item) = self.id_to_items.get(&path.id).and_then(|f| f.first()) {
+            output.extend(self.render_path(&item.path()));
+        } else if !name.is_empty() {
             let split: Vec<_> = name.split("::").collect();
             let len = split.len();
             for (index, part) in split.into_iter().enumerate() {
@@ -790,6 +793,48 @@ impl<'a> RenderingContext<'a> {
             output.push(Token::keyword("for"));
             output.extend(self.render_generic_param_defs(generic_params));
             output.push(ws!());
+        }
+        output
+    }
+
+    fn render_impl(&self, impl_: &Impl) -> Vec<Token> {
+        let mut output = vec![];
+
+        if impl_.is_unsafe {
+            output.extend(vec![Token::keyword("unsafe"), ws!()]);
+        }
+
+        output.push(Token::keyword("impl"));
+
+        output.extend(self.render_generic_param_defs(&impl_.generics.params));
+
+        output.push(ws!());
+
+        if let Some(trait_) = &impl_.trait_ {
+            if impl_.negative {
+                output.push(Token::symbol("!"));
+            }
+            output.push(Token::identifier(&trait_.name));
+            if let Some(args) = &trait_.args {
+                output.extend(self.render_generic_args(args));
+            }
+            output.extend(vec![ws!(), Token::keyword("for"), ws!()]);
+            output.extend(self.render_type(&impl_.for_));
+        } else {
+            output.extend(self.render_type(&impl_.for_));
+        }
+
+        output.extend(self.render_where_predicates(&impl_.generics.where_predicates));
+
+        if !impl_.items.is_empty() {
+            output.extend(vec![
+                ws!(),
+                Token::symbol("{"),
+                ws!(),
+                Token::symbol("..."),
+                ws!(),
+                Token::symbol("}"),
+            ]);
         }
         output
     }
@@ -1173,7 +1218,10 @@ mod test {
             external_crates: HashMap::new(),
             format_version: 0,
         };
-        let r = RenderingContext { crate_: &c };
+        let r = RenderingContext {
+            crate_: &c,
+            id_to_items: HashMap::new(),
+        };
         let actual = render_fn(r);
         assert_eq!(actual, expected);
         assert_eq!(

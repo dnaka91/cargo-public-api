@@ -7,14 +7,16 @@ use crate::{render::RenderingContext, tokens::Token, Options, PublicApi};
 
 type Impls<'a> = HashMap<&'a Id, Vec<&'a Impl>>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum ImplKind {
     Normal,
+    AutoTrait,
     Blanket,
 }
 
 #[derive(Debug, Clone)]
 struct ImplItem<'a> {
+    item: &'a Item,
     impl_: &'a Impl,
     for_id: Option<&'a Id>,
     kind: ImplKind,
@@ -41,6 +43,8 @@ pub struct ItemIterator<'a> {
 
     /// What items left to visit (and possibly add more items from)
     items_left: Vec<Rc<IntermediatePublicItem<'a>>>,
+
+    id_to_items: HashMap<&'a Id, Vec<Rc<IntermediatePublicItem<'a>>>>,
 
     /// Normally, an item referenced by item Id is present in the rustdoc JSON.
     /// If [`Self::crate_.index`] is missing an Id, then we add it here, to aid
@@ -70,6 +74,7 @@ impl<'a> ItemIterator<'a> {
         let mut s = ItemIterator {
             crate_,
             items_left: vec![],
+            id_to_items: HashMap::new(),
             missing_ids: vec![],
             active_impls: active_impls(all_impls.clone(), options),
         };
@@ -77,7 +82,20 @@ impl<'a> ItemIterator<'a> {
         // Bootstrap with the root item
         s.try_add_item_to_visit(&crate_.root, None);
 
+        // Many `impl`s are not reachable from the root, but we want to list
+        // some of them as part of the public API.
+        s.try_add_relevant_impls(all_impls);
+
         s
+    }
+
+    fn try_add_relevant_impls(&mut self, all_impls: Vec<ImplItem<'a>>) {
+        for impl_ in all_impls {
+            // Currently only Auto Trait Implementations are supported/listed
+            if impl_.kind == ImplKind::AutoTrait {
+                self.try_add_item_to_visit(&impl_.item.id, None);
+            }
+        }
     }
 
     fn add_children_for_item(&mut self, public_item: &Rc<IntermediatePublicItem<'a>>) {
@@ -153,7 +171,7 @@ impl<'a> ItemIterator<'a> {
         // items directly. See [`ItemIterator::impls`] docs for more info. And
         // if we inlined a glob import earlier, we should not add the import
         // item itself. All other items we can go ahead and add.
-        if !glob_import_inlined && !matches!(item.inner, ItemEnum::Impl { .. }) {
+        if !glob_import_inlined {
             self.add_item_to_visit(item, parent);
         }
     }
@@ -202,6 +220,10 @@ impl<'a> ItemIterator<'a> {
             parent,
         ));
 
+        self.id_to_items
+            .entry(&item.id)
+            .or_default()
+            .push(public_item.clone());
         self.items_left.push(public_item);
     }
 
@@ -229,6 +251,7 @@ impl<'a> Iterator for ItemIterator<'a> {
 fn all_impls(crate_: &Crate) -> impl Iterator<Item = ImplItem> {
     crate_.index.values().filter_map(|item| match &item.inner {
         ItemEnum::Impl(impl_) => Some(ImplItem {
+            item,
             impl_,
             kind: impl_kind(impl_),
             for_id: match &impl_.for_ {
@@ -245,6 +268,7 @@ fn impl_kind(impl_: &Impl) -> ImplKind {
 
     // See https://github.com/rust-lang/rust/blob/54f20bbb8a7aeab93da17c0019c1aaa10329245a/src/librustdoc/json/conversions.rs#L589-L590
     match (impl_.synthetic, has_blanket_impl) {
+        (true, false) => ImplKind::AutoTrait,
         (false, true) => ImplKind::Blanket,
         _ => ImplKind::Normal,
     }
@@ -260,8 +284,8 @@ fn active_impls(all_impls: Vec<ImplItem>, options: Options) -> Impls {
         };
 
         let active = match impl_item.kind {
-            ImplKind::Normal => true,
             ImplKind::Blanket => options.with_blanket_implementations,
+            ImplKind::AutoTrait | ImplKind::Normal => true,
         };
 
         if active {
@@ -288,21 +312,24 @@ fn items_in_container(item: &Item) -> Option<&Vec<Id>> {
         | ItemEnum::Variant(rustdoc_types::Variant::Struct { fields, .. }) => Some(fields),
         ItemEnum::Enum(e) => Some(&e.variants),
         ItemEnum::Trait(t) => Some(&t.items),
-        ItemEnum::Impl(i) => Some(&i.items),
         _ => None,
     }
 }
 
 pub fn public_api_in_crate(crate_: &Crate, options: Options) -> super::PublicApi {
-    let context = RenderingContext { crate_ };
     let mut item_iterator = ItemIterator::new(crate_, options);
-    let items = item_iterator
-        .by_ref()
-        .map(|p| intermediate_public_item_to_public_item(&context, &p))
-        .collect();
+    let items: Vec<_> = item_iterator.by_ref().collect();
+
+    let context = RenderingContext {
+        crate_,
+        id_to_items: item_iterator.id_to_items,
+    };
 
     PublicApi {
-        items,
+        items: items
+            .iter()
+            .map(|item| intermediate_public_item_to_public_item(&context, item))
+            .collect(),
         missing_item_ids: item_iterator
             .missing_ids
             .iter()

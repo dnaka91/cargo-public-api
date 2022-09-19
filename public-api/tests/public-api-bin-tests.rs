@@ -48,12 +48,17 @@ fn print_diff() {
 (nothing)
 
 Changed:
--pub fn example_api::function(v1_param: Struct)
-+pub fn example_api::function(v1_param: Struct, v2_param: usize)
+-pub fn example_api::function(v1_param: example_api::Struct)
++pub fn example_api::function(v1_param: example_api::Struct, v2_param: usize)
 -pub struct example_api::Struct
 +#[non_exhaustive] pub struct example_api::Struct
 
 Added:
++impl RefUnwindSafe for example_api::StructV2
++impl Send for example_api::StructV2
++impl Sync for example_api::StructV2
++impl Unpin for example_api::StructV2
++impl UnwindSafe for example_api::StructV2
 +pub struct example_api::StructV2
 +pub struct field example_api::Struct::v2_field: usize
 +pub struct field example_api::StructV2::field: usize
@@ -77,6 +82,11 @@ fn print_diff_reversed() {
             cmd.assert()
                 .stdout(
                     "Removed:
+-impl RefUnwindSafe for example_api::StructV2
+-impl Send for example_api::StructV2
+-impl Sync for example_api::StructV2
+-impl Unpin for example_api::StructV2
+-impl UnwindSafe for example_api::StructV2
 -pub struct example_api::StructV2
 -pub struct field example_api::Struct::v2_field: usize
 -pub struct field example_api::StructV2::field: usize
@@ -84,8 +94,8 @@ fn print_diff_reversed() {
 Changed:
 -#[non_exhaustive] pub struct example_api::Struct
 +pub struct example_api::Struct
--pub fn example_api::function(v1_param: Struct, v2_param: usize)
-+pub fn example_api::function(v1_param: Struct)
+-pub fn example_api::function(v1_param: example_api::Struct, v2_param: usize)
++pub fn example_api::function(v1_param: example_api::Struct)
 
 Added:
 (nothing)
