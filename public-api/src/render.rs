@@ -4,8 +4,8 @@ use std::rc::Rc;
 
 use rustdoc_types::{
     Abi, Constant, Crate, FnDecl, FunctionPointer, GenericArg, GenericArgs, GenericBound,
-    GenericParamDef, GenericParamDefKind, Generics, Header, ItemEnum, MacroKind, Path, PolyTrait,
-    StructKind, Term, Type, TypeBinding, TypeBindingKind, Variant, WherePredicate,
+    GenericParamDef, GenericParamDefKind, Generics, Header, Id, Item, ItemEnum, MacroKind, Path,
+    PolyTrait, StructKind, Term, Type, TypeBinding, TypeBindingKind, Variant, WherePredicate,
 };
 
 /// A simple macro to write `Token::Whitespace` in less characters.
@@ -46,9 +46,10 @@ impl<'a> RenderingContext<'a> {
             ItemEnum::Struct(s) => {
                 let mut output = self.render_simple(&["struct"], &item.path());
                 output.extend(self.render_generics(&s.generics));
-                if matches!(s.kind, StructKind::Tuple(_)) {
-                    output
-                        .extend(self.render_option_tuple(&item.pre_resolved_fields, Some(&pub_())));
+                if let StructKind::Tuple(fields) = &s.kind {
+                    output.extend(
+                        self.render_option_tuple(&self.resolved_fields(fields), Some(&pub_())),
+                    );
                 }
                 output
             }
@@ -73,8 +74,9 @@ impl<'a> RenderingContext<'a> {
                             output.push(Token::identifier(&discriminant.value));
                         }
                     }
-                    Variant::Tuple(_) => {
-                        output.extend(self.render_option_tuple(&item.pre_resolved_fields, None));
+                    Variant::Tuple(fields) => {
+                        output
+                            .extend(self.render_option_tuple(&self.resolved_fields(fields), None));
                     }
                 }
                 output
@@ -176,6 +178,27 @@ impl<'a> RenderingContext<'a> {
         tokens.extend(inner_tokens);
 
         tokens
+    }
+
+    /// See [`IntermediatePublicItem::pre_resolved_fields`] docs for more info.
+    fn resolved_fields(&self, fields: &[Option<Id>]) -> Vec<Option<&'a Type>> {
+        let mut resolved_fields: Vec<Option<&Type>> = vec![];
+
+        for id in fields {
+            resolved_fields.push(
+                if let Some(Item {
+                    inner: ItemEnum::StructField(type_),
+                    ..
+                }) = id.as_ref().and_then(|id| self.crate_.index.get(id))
+                {
+                    Some(type_)
+                } else {
+                    None
+                },
+            );
+        }
+
+        resolved_fields
     }
 
     fn render_simple(&self, tags: &[&str], path: &[Rc<IntermediatePublicItem<'_>>]) -> Vec<Token> {
