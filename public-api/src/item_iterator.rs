@@ -222,12 +222,18 @@ impl<'a> ItemIterator<'a> {
             };
         }
 
-        let public_item = Rc::new(IntermediatePublicItem::new(item, overridden_name, parent));
+        let public_item = Rc::new(IntermediatePublicItem {
+            item,
+            overridden_name,
+            parent,
+            impls: vec![],
+        });
 
         self.id_to_items
             .entry(&item.id)
             .or_default()
             .push(public_item.clone());
+
         self.items_left.push(public_item);
     }
 
@@ -249,6 +255,17 @@ impl<'a> Iterator for ItemIterator<'a> {
         }
 
         result
+    }
+}
+
+fn impls_for_item(item: &Item) -> Option<Vec<Id>> {
+    match item.inner {
+        ItemEnum::Union(union_) => Some(union_.impls),
+        ItemEnum::Struct(struct_) => Some(struct_.impls),
+        ItemEnum::Enum(enum_) => Some(enum_.impls),
+        ItemEnum::Primitive(primitive) => Some(primitive.impls),
+        // TODO? ItemEnum::Trait(trait_) => trait_.im,
+        _ => None,
     }
 }
 
@@ -347,6 +364,14 @@ fn intermediate_public_item_to_public_item(
     context: &RenderingContext,
     public_item: &Rc<IntermediatePublicItem<'_>>,
 ) -> PublicItem {
+    let mut impls = vec![];
+
+    for impl_id in impls_for_item(&public_item.item).iter().flatten() {
+        if let Some(items) = context.best_item_for_id(impl_id) {
+
+        }
+    }
+
     PublicItem {
         path: public_item
             .path()
@@ -368,12 +393,20 @@ pub struct PublicItem {
 
     /// The rendered item as a stream of [`Token`]s
     pub(crate) tokens: Vec<Token>,
+
+    /// The implementations of this item (which themselves are public items)
+    pub(crate) impls: Vec<PublicItem>,
 }
 
 impl PublicItem {
     /// The rendered item as a stream of [`Token`]s
     pub fn tokens(&self) -> impl Iterator<Item = &Token> {
         self.tokens.iter()
+    }
+
+    /// The implementations of this item (which themselves are public items)
+    pub fn impls(&self) -> impl Iterator<Item = &PublicItem> {
+        self.impls.iter()
     }
 }
 
