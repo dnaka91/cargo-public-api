@@ -5,15 +5,25 @@ use public_api::{diff::PublicItemsDiff, tokens::Token, PublicItem};
 
 use crate::Args;
 
+/// This is called `Plain` because there used to also be a `Markdown` formatter.
+/// Now only `Plain` remains.
 pub struct Plain;
 
 impl Plain {
+    fn print_item(w: &mut dyn Write, args: &Args, item: &PublicItem) -> Result<()> {
+        if args.color.active() {
+            writeln!(w, "{}", color_item(item))
+        } else {
+            writeln!(w, "{}", item)
+        }
+    }
+
     pub fn print_items(w: &mut dyn Write, args: &Args, items: &[PublicItem]) -> Result<()> {
         for item in items {
-            if args.color.active() {
-                writeln!(w, "{}", color_item(item))?;
-            } else {
-                writeln!(w, "{}", item)?;
+            Self::print_item(w, args, item)?;
+            for impl_ in item.impls() {
+                eprintln!("impl");
+                Self::print_item(w, args, impl_)?;
             }
         }
 
