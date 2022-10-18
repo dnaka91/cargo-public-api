@@ -5,8 +5,6 @@ use rustdoc_types::{Crate, Id, Impl, Import, Item, ItemEnum, Module, Struct, Str
 use super::intermediate_public_item::IntermediatePublicItem;
 use crate::{render::RenderingContext, tokens::Token, Options, PublicApi};
 
-type Impls<'a> = HashMap<&'a Id, Vec<&'a Impl>>;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ImplKind {
     Normal,
@@ -64,7 +62,7 @@ pub struct ItemIterator<'a> {
 }
 
 impl<'a> ItemIterator<'a> {
-    pub fn new(crate_: &'a Crate, options: Options) -> Self {
+    pub fn new(crate_: &'a Crate, _options: Options) -> Self {
         let mut s = ItemIterator {
             crate_,
             items_left: vec![],
@@ -216,17 +214,17 @@ impl<'a> Iterator for ItemIterator<'a> {
 }
 
 fn impls_for_item(item: &Item) -> Option<Vec<Id>> {
-    match item.inner {
-        ItemEnum::Union(union_) => Some(union_.impls),
-        ItemEnum::Struct(struct_) => Some(struct_.impls),
-        ItemEnum::Enum(enum_) => Some(enum_.impls),
-        ItemEnum::Primitive(primitive) => Some(primitive.impls),
+    match &item.inner {
+        ItemEnum::Union(union_) => Some(union_.impls.clone()),
+        ItemEnum::Struct(struct_) => Some(struct_.impls.clone()),
+        ItemEnum::Enum(enum_) => Some(enum_.impls.clone()),
+        ItemEnum::Primitive(primitive) => Some(primitive.impls.clone()),
         // TODO? ItemEnum::Trait(trait_) => trait_.im,
         _ => None,
     }
 }
 
-const fn impl_kind(impl_: &Impl) -> ImplKind {
+const fn _impl_kind(impl_: &Impl) -> ImplKind {
     let has_blanket_impl = matches!(impl_.blanket_impl, Some(_));
 
     // See https://github.com/rust-lang/rust/blob/54f20bbb8a7aeab93da17c0019c1aaa10329245a/src/librustdoc/json/conversions.rs#L589-L590
@@ -287,7 +285,7 @@ fn intermediate_public_item_to_public_item(
         if let Some(item) = context.best_item_for_id(impl_id) {
             impls.push(PublicItem {
                 path: vec![],
-                tokens: public_item.render_token_stream(context),
+                tokens: item.render_token_stream(context),
                 impls: vec![],
             })
         }
