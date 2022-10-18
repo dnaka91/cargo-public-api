@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display, rc::Rc};
 
-use rustdoc_types::{Crate, Id, Impl, Import, Item, ItemEnum, Module, Struct, StructKind, Type};
+use rustdoc_types::{Crate, Id, Impl, Import, Item, ItemEnum, Module, Struct, StructKind};
 
 use super::intermediate_public_item::IntermediatePublicItem;
 use crate::{render::RenderingContext, tokens::Token, Options, PublicApi};
@@ -61,65 +61,24 @@ pub struct ItemIterator<'a> {
     /// <https://github.com/rust-lang/rust/pull/99287#issuecomment-1186586518>)
     /// We do not report it to users, because they can't do anything about it.
     missing_ids: Vec<&'a Id>,
-
-    /// `impl`s are a bit special. They do not need to be reachable by the crate
-    /// root in order to matter. All that matters is that the trait and type
-    /// involved are both public.
-    ///
-    /// Since the rustdoc JSON by definition only includes public items, all
-    /// `impl`s we see are potentially relevant. We do some filtering though.
-    /// For example, we do not care about blanket implementations by default.
-    ///
-    /// Whenever we encounter an active `impl` for a type, we inject the
-    /// associated items of the `impl` as children of the type.
-    active_impls: Impls<'a>,
 }
 
 impl<'a> ItemIterator<'a> {
     pub fn new(crate_: &'a Crate, options: Options) -> Self {
-        let all_impls: Vec<ImplItem> = all_impls(crate_).collect();
-
         let mut s = ItemIterator {
             crate_,
             items_left: vec![],
             id_to_items: HashMap::new(),
             missing_ids: vec![],
-            active_impls: active_impls(all_impls.clone(), options),
         };
 
         // Bootstrap with the root item
         s.try_add_item_to_visit(&crate_.root, None);
 
-        // Many `impl`s are not reachable from the root, but we want to list
-        // some of them as part of the public API.
-        s.try_add_relevant_impls(all_impls);
-
         s
     }
 
-    fn try_add_relevant_impls(&mut self, all_impls: Vec<ImplItem<'a>>) {
-        for impl_ in all_impls {
-            // Currently only Auto Trait Implementations are supported/listed
-            if impl_.kind == ImplKind::AutoTrait {
-                self.try_add_item_to_visit(&impl_.item.id, None);
-            }
-        }
-    }
-
     fn add_children_for_item(&mut self, public_item: &Rc<IntermediatePublicItem<'a>>) {
-        // Handle any impls. See [`ItemIterator::impls`] docs for more info.
-        let mut add_after_borrow = vec![];
-        if let Some(impls) = self.active_impls.get(&public_item.item.id) {
-            for impl_ in impls {
-                for id in &impl_.items {
-                    add_after_borrow.push(id);
-                }
-            }
-        }
-        for id in add_after_borrow {
-            self.try_add_item_to_visit(id, Some(public_item.clone()));
-        }
-
         // Handle regular children of the item
         for child in items_in_container(public_item.item).into_iter().flatten() {
             self.try_add_item_to_visit(child, Some(public_item.clone()));
@@ -256,19 +215,15 @@ impl<'a> Iterator for ItemIterator<'a> {
     }
 }
 
-fn all_impls(crate_: &Crate) -> impl Iterator<Item = ImplItem> {
-    crate_.index.values().filter_map(|item| match &item.inner {
-        ItemEnum::Impl(impl_) => Some(ImplItem {
-            item,
-            impl_,
-            kind: impl_kind(impl_),
-            for_id: match &impl_.for_ {
-                Type::ResolvedPath(path) => Some(&path.id),
-                _ => None,
-            },
-        }),
+fn impls_for_item(item: &Item) -> Option<Vec<Id>> {
+    match item.inner {
+        ItemEnum::Union(union_) => Some(union_.impls),
+        ItemEnum::Struct(struct_) => Some(struct_.impls),
+        ItemEnum::Enum(enum_) => Some(enum_.impls),
+        ItemEnum::Primitive(primitive) => Some(primitive.impls),
+        // TODO? ItemEnum::Trait(trait_) => trait_.im,
         _ => None,
-    })
+    }
 }
 
 const fn impl_kind(impl_: &Impl) -> ImplKind {
@@ -280,31 +235,6 @@ const fn impl_kind(impl_: &Impl) -> ImplKind {
         (false, true) => ImplKind::Blanket,
         _ => ImplKind::Normal,
     }
-}
-
-fn active_impls(all_impls: Vec<ImplItem>, options: Options) -> Impls {
-    let mut impls = HashMap::new();
-
-    for impl_item in all_impls {
-        let for_id = match impl_item.for_id {
-            Some(id) => id,
-            None => continue,
-        };
-
-        let active = match impl_item.kind {
-            ImplKind::Blanket => options.with_blanket_implementations,
-            ImplKind::AutoTrait | ImplKind::Normal => true,
-        };
-
-        if active {
-            impls
-                .entry(for_id)
-                .or_insert_with(Vec::new)
-                .push(impl_item.impl_);
-        }
-    }
-
-    impls
 }
 
 /// Some items contain other items, which is relevant for analysis. Keep track
@@ -351,6 +281,18 @@ fn intermediate_public_item_to_public_item(
     context: &RenderingContext,
     public_item: &Rc<IntermediatePublicItem<'_>>,
 ) -> PublicItem {
+    let mut impls = vec![];
+
+    for impl_id in impls_for_item(&public_item.item).iter().flatten() {
+        if let Some(item) = context.best_item_for_id(impl_id) {
+            impls.push(PublicItem {
+                path: vec![],
+                tokens: public_item.render_token_stream(context),
+                impls: vec![],
+            })
+        }
+    }
+
     PublicItem {
         path: public_item
             .path()
@@ -358,6 +300,7 @@ fn intermediate_public_item_to_public_item(
             .map(|i| i.name().to_owned())
             .collect::<PublicItemPath>(),
         tokens: public_item.render_token_stream(context),
+        impls,
     }
 }
 
@@ -372,12 +315,20 @@ pub struct PublicItem {
 
     /// The rendered item as a stream of [`Token`]s
     pub(crate) tokens: Vec<Token>,
+
+    /// The implementations of this item (which themselves are public items)
+    pub(crate) impls: Vec<PublicItem>,
 }
 
 impl PublicItem {
     /// The rendered item as a stream of [`Token`]s
     pub fn tokens(&self) -> impl Iterator<Item = &Token> {
         self.tokens.iter()
+    }
+
+    /// The implementations of this item (which themselves are public items)
+    pub fn impls(&self) -> impl Iterator<Item = &PublicItem> {
+        self.impls.iter()
     }
 }
 
