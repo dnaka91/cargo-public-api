@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use rustdoc_types::{Id, Item};
+use rustdoc_types::{Id, Item, ItemEnum};
 
 use crate::{public_item::PublicItemPath, render::RenderingContext, tokens::Token};
 
@@ -64,6 +64,20 @@ impl<'a> IntermediatePublicItem<'a> {
     }
 
     pub fn render_token_stream(&self, context: &RenderingContext) -> Vec<Token> {
-        context.token_stream(self)
+        let mut output = if matches!(
+            self.parent.as_ref().map(|p| &p.as_ref().item.inner),
+            Some(ItemEnum::Impl(_))
+        ) {
+            vec![
+                Token::Whitespace,
+                Token::Whitespace,
+                Token::Whitespace,
+                Token::Whitespace,
+            ]
+        } else {
+            vec![]
+        };
+        output.extend(context.token_stream(self));
+        output
     }
 }

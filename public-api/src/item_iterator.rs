@@ -87,28 +87,11 @@ impl<'a> ItemIterator<'a> {
 
     fn try_add_relevant_impls(&mut self, all_impls: Vec<ImplItem<'a>>) {
         for impl_ in all_impls {
-            // Currently only Auto Trait Implementations are supported/listed
-            if impl_.kind == ImplKind::AutoTrait {
-                self.try_add_item_to_visit(&impl_.item.id, None);
-            }
+            self.try_add_item_to_visit(&impl_.item.id, None);
         }
     }
 
     fn add_children_for_item(&mut self, public_item: &Rc<IntermediatePublicItem<'a>>) {
-        // Handle any impls. See [`ItemIterator::impls`] docs for more info.
-        let mut add_after_borrow = vec![];
-        if let Some(impls) = self.active_impls.get(&public_item.item.id) {
-            for impl_ in impls {
-                for id in &impl_.items {
-                    add_after_borrow.push(id);
-                }
-            }
-        }
-        for id in add_after_borrow {
-            self.try_add_item_to_visit(id, Some(public_item.clone()));
-        }
-
-        // Handle regular children of the item
         for child in items_in_container(public_item.item).into_iter().flatten() {
             self.try_add_item_to_visit(child, Some(public_item.clone()));
         }

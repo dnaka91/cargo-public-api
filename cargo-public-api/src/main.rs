@@ -369,6 +369,7 @@ fn resolve_diff_shorthand(args: &mut Args) {
 fn get_options(args: &Args) -> Options {
     let mut options = Options::default();
     options.with_blanket_implementations = args.with_blanket_implementations;
+    options.sorted = false;
     options
 }
 
