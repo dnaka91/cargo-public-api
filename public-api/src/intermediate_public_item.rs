@@ -24,11 +24,10 @@ pub struct IntermediatePublicItem<'a> {
 }
 
 impl<'a> IntermediatePublicItem<'a> {
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> Option<&str> {
         self.overridden_name
             .as_deref()
             .or(self.item.name.as_deref())
-            .unwrap_or("<<no_name>>")
     }
 
     #[must_use]
@@ -50,7 +49,10 @@ impl<'a> IntermediatePublicItem<'a> {
 
     #[must_use]
     pub fn path_vec(&'a self) -> PublicItemPath {
-        self.path().iter().map(|i| i.name().to_owned()).collect()
+        self.path()
+            .iter()
+            .flat_map(|i| i.name().map(|n| String::from(n)))
+            .collect()
     }
 
     #[must_use]

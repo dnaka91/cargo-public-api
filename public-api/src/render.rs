@@ -242,8 +242,10 @@ impl<'a> RenderingContext<'a> {
             } else {
                 Token::identifier
             };
-            output.push(token_fn(item.name()));
-            output.push(Token::symbol("::"));
+            if let Some(name) = item.name() {
+                output.push(token_fn(name));
+                output.push(Token::symbol("::"));
+            }
         }
         if !path.is_empty() {
             output.pop();
@@ -608,16 +610,6 @@ impl<'a> RenderingContext<'a> {
 
         output.extend(self.render_where_predicates(&impl_.generics.where_predicates));
 
-        if !impl_.items.is_empty() {
-            output.extend(vec![
-                ws!(),
-                Token::symbol("{"),
-                ws!(),
-                Token::symbol("..."),
-                ws!(),
-                Token::symbol("}"),
-            ]);
-        }
         output
     }
 
