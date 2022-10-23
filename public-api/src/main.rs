@@ -36,7 +36,7 @@ fn main_() -> Result<()> {
     }
 
     let mut options = Options::default();
-    options.with_blanket_implementations = args.with_blanket_implementations;
+    options.simplified = !args.with_blanket_implementations;
     options.sorted = true;
 
     let files = args.files;

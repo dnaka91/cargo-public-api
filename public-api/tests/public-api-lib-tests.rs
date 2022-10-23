@@ -115,7 +115,7 @@ fn assert_public_api_impl(
     with_blanket_implementations: bool,
 ) {
     let mut options = Options::default();
-    options.with_blanket_implementations = with_blanket_implementations;
+    options.simplified = !with_blanket_implementations;
     options.sorted = true;
 
     let api = PublicApi::from_rustdoc_json(rustdoc_json, options).unwrap();

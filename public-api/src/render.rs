@@ -608,16 +608,6 @@ impl<'a> RenderingContext<'a> {
 
         output.extend(self.render_where_predicates(&impl_.generics.where_predicates));
 
-        if !impl_.items.is_empty() {
-            output.extend(vec![
-                ws!(),
-                Token::symbol("{"),
-                ws!(),
-                Token::symbol("..."),
-                ws!(),
-                Token::symbol("}"),
-            ]);
-        }
         output
     }
 
@@ -899,7 +889,7 @@ impl<'a> RenderingContext<'a> {
         output
     }
 
-    fn best_item_for_id(&self, id: &Id) -> Option<Rc<IntermediatePublicItem<'a>>> {
+    pub fn best_item_for_id(&self, id: &Id) -> Option<Rc<IntermediatePublicItem<'a>>> {
         match self.id_to_items.get(&id) {
             None => None,
             Some(items) => {

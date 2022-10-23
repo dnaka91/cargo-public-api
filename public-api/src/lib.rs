@@ -74,14 +74,25 @@ pub const MINIMUM_RUSTDOC_JSON_VERSION: &str = "nightly-2022-09-28";
 #[derive(Copy, Clone, Debug)]
 #[non_exhaustive] // More options are likely to be added in the future
 pub struct Options {
-    /// If `true`, items part of blanket implementations such as `impl<T> Any
-    /// for T`, `impl<T> Borrow<T> for T`, and `impl<T, U> Into<U> for T where
-    /// U: From<T>` are included in the list of public items of a crate.
+    /// If `true`, items part of
     ///
-    /// The default value is `false` since the vast majority of users will
-    /// find the presence of these items to just constitute noise, even if they
-    /// formally are part of the public API of a crate.
-    pub with_blanket_implementations: bool,
+    /// * Blanket Implementations (such as `impl<T> Any for T`, `impl<T>
+    ///   Borrow<T> for T`, and `impl<T, U> Into<U> for T where U: From<T>`)
+    ///
+    /// * Auto Trait Implementations (such as `impl Sync for Foo`)
+    ///
+    /// are excluded in the list of public items of a crate. The default value
+    /// is `false`, to make that the default behavior is to fully list the
+    /// public API.
+    ///
+    /// For casual use, it is easy to see the presence of these items to
+    /// constitute noise however, even if they formally are part of the public
+    /// API of a crate.
+    ///
+    /// TODO: What prior art is there for a single-letter arg switch for this
+    /// kind of arg? Maybe we need another long term for this to make the short
+    /// term make sense.
+    pub simplified: bool,
 
     /// If `true`, items will be sorted before being returned. If you will pass
     /// on the return value to [`diff::PublicApiDiff::between`], it is
@@ -105,7 +116,7 @@ pub struct Options {
 impl Default for Options {
     fn default() -> Self {
         Self {
-            with_blanket_implementations: false,
+            simplified: false,
             sorted: true,
         }
     }
@@ -141,7 +152,8 @@ impl Default for Options {
 pub struct PublicApi {
     /// The items that constitutes the public API. An "item" is for example a
     /// function, a struct, a struct field, an enum, an enum variant, a module,
-    /// etc...
+    /// etc... Note that this Vec does not include `impl`s items, but the
+    /// iterator returned by [`Self::items()`] do include them.
     pub(crate) items: Vec<PublicItem>,
 
     /// See [`Self::missing_item_ids()`]
@@ -193,6 +205,9 @@ impl PublicApi {
         let mut public_api = item_iterator::public_api_in_crate(&crate_, options);
 
         if options.sorted {
+            for item in &mut public_api.items {
+                item.impls.sort();
+            }
             public_api.items.sort();
         }
 
@@ -201,13 +216,38 @@ impl PublicApi {
 
     /// Returns an iterator over all public items in the public API
     pub fn items(&self) -> impl Iterator<Item = &'_ PublicItem> {
-        self.items.iter()
+        self.items.iter().flat_map(|item| {
+            let mut all = vec![];
+            all.push(item);
+            all.extend(item.impls.iter());
+            all
+        })
     }
 
     /// Like [`Self::items()`], but ownership of all `PublicItem`s are
     /// transferred to the caller.
     pub fn into_items(self) -> impl Iterator<Item = PublicItem> {
-        self.items.into_iter()
+        self.items.into_iter().flat_map(|item| {
+            let PublicItem {
+                path,
+                tokens,
+                children,
+                impls,
+            } = item;
+
+            let children_stripped = PublicItem {
+                path,
+                tokens,
+                children: vec![],
+                impls: vec![],
+            };
+
+            let mut all = vec![];
+            all.push(children_stripped);
+            all.extend(children.into_iter());
+            all.extend(impls.into_iter());
+            all
+        })
     }
 
     /// The rustdoc JSON IDs of missing but referenced items. Intended for use

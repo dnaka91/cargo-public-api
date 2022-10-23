@@ -36,8 +36,9 @@ pub struct Args {
     /// majority of users will find the presence of these items to just
     /// constitute noise, even if they formally are part of the public API of a
     /// crate.
+    /// TODO: UPDATE
     #[clap(long)]
-    with_blanket_implementations: bool,
+    simplified: bool,
 
     /// Usage: --diff-git-checkouts <COMMIT_1> <COMMIT_2>
     ///
@@ -368,7 +369,7 @@ fn resolve_diff_shorthand(args: &mut Args) {
 /// [`Args`]
 fn get_options(args: &Args) -> Options {
     let mut options = Options::default();
-    options.with_blanket_implementations = args.with_blanket_implementations;
+    options.simplified = !args.simplified; // TODO
     options
 }
 

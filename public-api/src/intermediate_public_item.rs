@@ -4,6 +4,9 @@ use rustdoc_types::{Id, Item};
 
 use crate::{public_item::PublicItemPath, render::RenderingContext, tokens::Token};
 
+/// TODO docs
+pub type Parent<'a> = Option<Rc<IntermediatePublicItem<'a>>>;
+
 /// This struct represents one public item of a crate, but in intermediate form.
 /// It wraps a single [Item] but adds additional calculated values to make it
 /// easier to work with. Later, one [`Self`] will be converted to exactly one
@@ -20,7 +23,7 @@ pub struct IntermediatePublicItem<'a> {
     /// The parent item. If [Self::item] is e.g. an enum variant, then the
     /// parent is an enum. We follow the chain of parents to be able to know the
     /// correct path to an item in the output.
-    pub parent: Option<Rc<IntermediatePublicItem<'a>>>,
+    pub parent: Parent<'a>,
 }
 
 impl<'a> IntermediatePublicItem<'a> {

@@ -1,7 +1,10 @@
 use std::fmt::Display;
 use std::rc::Rc;
+use std::vec;
 
 use crate::intermediate_public_item::IntermediatePublicItem;
+use crate::item_iterator::impls_for_item;
+use crate::item_iterator::items_in_container;
 use crate::render::RenderingContext;
 use crate::tokens::tokens_to_string;
 use crate::tokens::Token;
@@ -23,6 +26,12 @@ pub struct PublicItem {
 
     /// The rendered item as a stream of [`Token`]s
     pub(crate) tokens: Vec<Token>,
+
+    /// The children of this item (which themselves are public items)
+    pub(crate) children: Vec<PublicItem>,
+
+    /// The `impl`s for this item (which themselves are public items)
+    pub(crate) impls: Vec<PublicItem>,
 }
 
 impl PublicItem {
@@ -30,9 +39,34 @@ impl PublicItem {
         context: &RenderingContext,
         public_item: &Rc<IntermediatePublicItem<'_>>,
     ) -> PublicItem {
+        let mut impls = vec![];
+
+        for impl_id in impls_for_item(public_item.item).unwrap_or_default() {
+            //eprintln!("item={:?}", impl_id);
+            if let Some(item) = context.best_item_for_id(impl_id) {
+                let children = vec![];
+                // for child_id in items_in_container(item.item).into_iter().flatten() {
+                //     match context.crate_.index.get(child_id) {
+                //         Some(item) => todo!(),
+                //         None => todo!(),
+                //     }
+                // }
+                impls.push(PublicItem {
+                    path: vec![],
+                    tokens: item.render_token_stream(context),
+                    children,
+                    impls: vec![],
+                });
+            } /*  else {
+                  eprintln!("missing item={:?}", impl_id);
+              }*/
+        }
+
         PublicItem {
             path: public_item.path_vec(),
             tokens: public_item.render_token_stream(context),
+            children: vec![],
+            impls,
         }
     }
 
