@@ -1,4 +1,7 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use rustdoc_types::{Crate, Id, Impl, Import, Item, ItemEnum, Module, Struct, StructKind, Type};
 
@@ -16,6 +19,7 @@ enum ImplKind {
     Normal,
     AutoTrait,
     Blanket,
+    NotAnImpl,
 }
 
 #[derive(Debug, Clone)]
@@ -62,34 +66,28 @@ pub struct ItemIterator<'a> {
     ///
     /// Whenever we encounter an active `impl` for a type, we inject the
     /// associated items of the `impl` as children of the type.
-    active_impls: Impls<'a>,
+    seen_impls: HashSet<&'a Id>,
 }
 
 impl<'a> ItemIterator<'a> {
     pub fn new(crate_: &'a Crate, options: Options) -> Self {
-        let all_impls: Vec<ImplItem> = all_impls(crate_).collect();
-
         let mut s = ItemIterator {
             crate_: CrateWrapper::new(crate_),
             items_left: vec![],
             id_to_items: HashMap::new(),
-            active_impls: active_impls(all_impls.clone(), options),
+            seen_impls: HashSet::new(),
         };
 
         // Bootstrap with the root item
         s.try_add_item_to_visit(&crate_.root, None);
 
-        // Many `impl`s are not reachable from the root, but we want to list
-        // some of them as part of the public API.
-        s.try_add_relevant_impls(all_impls);
-
         s
     }
 
-    fn try_add_relevant_impls(&mut self, all_impls: Vec<ImplItem<'a>>) {
+    fn try_add_relevant_impls(&mut self, all_impls: impl Iterator<Item = &'a Id>) {
         for impl_ in all_impls {
             // Currently only Auto Trait Implementations are supported/listed
-            if impl_.kind == ImplKind::AutoTrait {
+            if impl_kind(impl_) == ImplKind::AutoTrait {
                 self.try_add_item_to_visit(&impl_.item.id, None);
             }
         }
@@ -239,19 +237,11 @@ impl<'a> Iterator for ItemIterator<'a> {
     }
 }
 
-fn all_impls(crate_: &Crate) -> impl Iterator<Item = ImplItem> {
-    crate_.index.values().filter_map(|item| match &item.inner {
-        ItemEnum::Impl(impl_) => Some(ImplItem {
-            item,
-            impl_,
-            kind: impl_kind(impl_),
-            for_id: match &impl_.for_ {
-                Type::ResolvedPath(path) => Some(&path.id),
-                _ => None,
-            },
-        }),
-        _ => None,
-    })
+fn impl_kind_for_item(item: &Item) -> ImplKind {
+    match &item.inner {
+        ItemEnum::Impl(impl_) => impl_kind(impl_),
+        _ => ImplKind::NotAnImpl,
+    }
 }
 
 const fn impl_kind(impl_: &Impl) -> ImplKind {
