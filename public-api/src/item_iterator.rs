@@ -14,12 +14,12 @@ use crate::{
 // type Impls<'c> = HashMap<&'c Id, Vec<&'c Impl>>;
 // type Parent<'c> = Option<Rc<IntermediatePublicItem<'c>>>;
 
-// #[derive(Debug, Clone, PartialEq, Eq)]
-// enum ImplKind {
-//     Normal,
-//     AutoTrait,
-//     Blanket,
-// }
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ImplKind {
+    Normal,
+    AutoTrait,
+    Blanket,
+}
 
 // #[derive(Debug, Clone)]
 // struct ImplItem<'c> {
@@ -149,17 +149,17 @@ impl<'c> ItemProcessor<'c> {
         let new = self.finish_item(unprocessed_item, item, None);
 
         // Note reversed so all items and up at the front but in preserved order
-        for c in items_in_container(item).into_iter().flatten().rev() {
-            self.work_queue.push_front(UnprocessedItem {
-                parent_path: new.path.clone(),
-                id: &c,
-            });
-        }
-
         for impl_ in impls_for_item(item).into_iter().flatten().rev() {
             self.work_queue.push_front(UnprocessedItem {
                 parent_path: new.path.clone(),
                 id: &impl_,
+            });
+        }
+
+        for c in items_in_container(item).into_iter().flatten().rev() {
+            self.work_queue.push_front(UnprocessedItem {
+                parent_path: new.path.clone(),
+                id: &c,
             });
         }
 
