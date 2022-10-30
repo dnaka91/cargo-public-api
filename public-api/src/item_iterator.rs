@@ -3,7 +3,7 @@ use std::{
     vec,
 };
 
-use rustdoc_types::{Crate, Id, Import, Item, ItemEnum, Module, Struct, StructKind};
+use rustdoc_types::{Crate, Id, Impl, Import, Item, ItemEnum, Module, Struct, StructKind};
 
 use super::intermediate_public_item::IntermediatePublicItem;
 use crate::{
@@ -11,14 +11,20 @@ use crate::{
     PublicApi,
 };
 
-// type Impls<'c> = HashMap<&'c Id, Vec<&'c Impl>>;
-// type Parent<'c> = Option<Rc<IntermediatePublicItem<'c>>>;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ImplKind {
     Normal,
     AutoTrait,
     Blanket,
+}
+
+impl ImplKind {
+    fn is_active(&self, options: &Options) {
+        match self {
+            ImplKind::Blanket => options.with_blanket_implementations,
+            ImplKind::AutoTrait | ImplKind::Normal => true,
+        };
+    }
 }
 
 // #[derive(Debug, Clone)]
@@ -28,65 +34,6 @@ enum ImplKind {
 //     for_id: Option<&'c Id>,
 //     kind: ImplKind,
 // }
-
-// /// Iterates over all items in a crate. Iterating over items has the benefit of
-// /// behaving properly when:
-// /// 1. A single item is imported several times.
-// /// 2. An item is (publicly) imported from another crate
-// ///
-// /// Note that this implementation iterates over everything (with the exception
-// /// of `impl`s, see relevant code for more details), so if the rustdoc JSON is
-// /// generated with `--document-private-items`, then private items will also be
-// /// included in the output.
-// pub struct ItemIterator<'c> {
-//     /// The original and unmodified rustdoc JSON, in deserialized form.
-//     crate_: CrateWrapper<'c>,
-
-//     /// What items left to visit (and possibly add more items from)
-//     items_left: Vec<Rc<IntermediatePublicItem<'c>>>,
-
-//     /// Given a rustdoc JSON Id, keeps track of what public items that have this
-//     /// ID. The reason this is a one-to-many mapping is because of re-exports.
-//     /// If an API re-exports a public item in a different place, the same item
-//     /// will be reachable by different paths, and thus the Vec will contain many
-//     /// [`IntermediatePublicItem`]s for that ID.
-//     ///
-//     /// You might think this is rare, but it is actually a common thing in
-//     /// real-world code.
-//     id_to_items: HashMap<&'c Id, Vec<Rc<IntermediatePublicItem<'c>>>>,
-
-//     /// `impl`s are a bit special. They do not need to be reachable by the crate
-//     /// root in order to matter. All that matters is that the trait and type
-//     /// involved are both public.
-//     ///
-//     /// Since the rustdoc JSON by definition only includes public items, all
-//     /// `impl`s we see are potentially relevant. We do some filtering though.
-//     /// For example, we do not care about blanket implementations by default.
-//     ///
-//     /// Whenever we encounter an active `impl` for a type, we inject the
-//     /// associated items of the `impl` as children of the type.
-//     active_impls: Impls<'c>,
-// }
-
-// type IntermediateItem<'a> = IntermediatePublicItem<'a>;
-
-/// Iterates over all items in a crate. Iterating over items has the benefit of
-/// behaving properly when:
-/// 1. A single item is imported several times.
-/// 2. An item is (publicly) imported from another crate
-///
-/// Note that this implementation iterates over everything (with the exception
-/// of `impl`s, see relevant code for more details), so if the rustdoc JSON is
-/// generated with `--document-private-items`, then private items will also be
-/// included in the output.
-pub struct ItemProcessor<'c> {
-    /// The original and unmodified rustdoc JSON, in deserialized form.
-    crate_: CrateWrapper<'c>,
-    //paths: Vec<Vec<&'c Id>>,
-    work_queue: VecDeque<UnprocessedItem<'c>>,
-
-    output: Vec<ProcessedItem<'c>>,
-}
 
 #[derive(Debug)]
 struct UnprocessedItem<'c> {
@@ -99,14 +46,32 @@ struct ProcessedItem<'c> {
     path: Vec<IntermediatePublicItem<'c>>,
 }
 
-// impl<'c> Work<'c> {
-//     fn
-// }
+/// TODO
+///
+/// Iterating over items has the benefit of behaving properly when:
+/// 1. A single item is imported several times.
+/// 2. An item is (publicly) imported from another crate
+///
+/// Note that this implementation iterates over everything (with the exception
+/// of `impl`s, see relevant code for more details), so if the rustdoc JSON is
+/// generated with `--document-private-items`, then private items will also be
+/// included in the output.
+pub struct ItemProcessor<'c> {
+    /// The original and unmodified rustdoc JSON, in deserialized form.
+    crate_: CrateWrapper<'c>,
+
+    options: Options,
+
+    work_queue: VecDeque<UnprocessedItem<'c>>,
+
+    output: Vec<ProcessedItem<'c>>,
+}
 
 impl<'c> ItemProcessor<'c> {
-    pub fn new(crate_: &'c Crate) -> Self {
+    pub fn new(crate_: &'c Crate, options: Options) -> Self {
         ItemProcessor {
             crate_: CrateWrapper::new(crate_),
+            options,
             work_queue: VecDeque::new(),
             output: vec![],
         }
@@ -139,48 +104,18 @@ impl<'c> ItemProcessor<'c> {
                     self.process_import_item(item, import, unprocessed_item);
                 }
             }
+            ItemEnum::Impl(impl_) => {
+                self.process_impl_item(unprocessed_item, impl_);
+            }
             _ => {
                 self.process_item(unprocessed_item, item);
             }
         }
     }
 
-    fn process_item(&mut self, unprocessed_item: UnprocessedItem<'c>, item: &'c Item) {
-        let new = self.finish_item(unprocessed_item, item, None);
-
-        // Note reversed so all items and up at the front but in preserved order
-        for impl_ in impls_for_item(item).into_iter().flatten().rev() {
-            self.work_queue.push_front(UnprocessedItem {
-                parent_path: new.path.clone(),
-                id: &impl_,
-            });
-        }
-
-        for c in items_in_container(item).into_iter().flatten().rev() {
-            self.work_queue.push_front(UnprocessedItem {
-                parent_path: new.path.clone(),
-                id: &c,
-            });
-        }
-
-        self.output.push(new);
-    }
-
-    fn process_import_item(
-        &mut self,
-        item: &'c Item,
-        import: &'c Import,
-        unprocessed_item: UnprocessedItem<'c>,
-    ) {
-        let mut actual_item = item;
-        if let Some(imported_item) = import.id.as_ref().and_then(|imported_id| {
-            self.get_item_if_not_in_path(&unprocessed_item.parent_path, imported_id)
-        }) {
-            actual_item = imported_item;
-        }
-        self.finish_item(unprocessed_item, actual_item, Some(import.name.clone()));
-    }
-
+    /// We need to handle `pub use foo::*` specially. In case of such wildcard
+    /// imports, `glob` will be `true` and `id` will be the module we should
+    /// import all items from, but we should NOT add the module itself.
     fn process_import_glob_item(
         &mut self,
         import: &'c Import,
@@ -208,6 +143,54 @@ impl<'c> ItemProcessor<'c> {
                 Some(format!("<<{}::*>>", import.source)),
             );
         }
+    }
+
+    /// Since public imports are part of the public API, we inline them, i.e.
+    /// replace the item corresponding to an import with the item that is
+    /// imported. If we didn't do this, publicly imported items would show up as
+    /// just e.g. `pub use some::function`, which is not sufficient for the use
+    /// cases of this tool. We want to show the actual API, and thus also show
+    /// type information! There is one exception; for re-exports of primitive
+    /// types, there is no item Id to inline with, so they remain as e.g. `pub
+    /// use my_i32` in the output.
+    fn process_import_item(
+        &mut self,
+        item: &'c Item,
+        import: &'c Import,
+        unprocessed_item: UnprocessedItem<'c>,
+    ) {
+        let mut actual_item = item;
+        if let Some(imported_item) = import.id.as_ref().and_then(|imported_id| {
+            self.get_item_if_not_in_path(&unprocessed_item.parent_path, imported_id)
+        }) {
+            actual_item = imported_item;
+        }
+        self.finish_item(unprocessed_item, actual_item, Some(import.name.clone()));
+    }
+
+    fn process_impl_item(&self, unprocessed_item: UnprocessedItem, impl_: &Impl) {
+        todo!()
+    }
+
+    fn process_item(&mut self, unprocessed_item: UnprocessedItem<'c>, item: &'c Item) {
+        let new = self.finish_item(unprocessed_item, item, None);
+
+        // Note reversed so all items and up at the front but in preserved order
+        for impl_ in impls_for_item(item).into_iter().flatten().rev() {
+            self.work_queue.push_front(UnprocessedItem {
+                parent_path: new.path.clone(),
+                id: &impl_,
+            });
+        }
+
+        for c in items_in_container(item).into_iter().flatten().rev() {
+            self.work_queue.push_front(UnprocessedItem {
+                parent_path: new.path.clone(),
+                id: &c,
+            });
+        }
+
+        self.output.push(new);
     }
 
     fn finish_item(
@@ -271,102 +254,6 @@ impl<'c> ItemProcessor<'c> {
     //     self.path().iter().any(|m| m.overridden_name.is_some())
     // }
 
-    // pub fn render_token_stream(&self, context: &RenderingContext) -> Vec<Token> {
-    //     context.token_stream(self)
-    // }
-
-    /// Builds an [`IntermediatePublicItem`] for the root item. This is a bit
-    /// special, because we can assume that
-    /// * the root item exists
-    /// * its name shall not be overridden
-    /// * it has no parent
-    /// * it is not a glob import (i.e. will resolve to a single
-    ///   [`IntermediatePublicItem`])
-    // fn build_for_root(&mut self) -> IntermediatePublicItem<'c> {
-    //     let root_item = self
-    //         .crate_
-    //         .get_item(self.crate_.root())
-    //         .expect("There must be an item with the root Id in the rustdoc JSON");
-
-    //     self.add_child_item(root_item, None, None)
-    // }
-
-    // fn add_any_child_item(
-    //     &mut self,
-    //     item: &'c Item,
-    //     parent: IntermediatePublicItem<'c>,
-    // ) -> IntermediatePublicItem<'c> {
-    //     match &item.inner {
-    //         ItemEnum::Import(import) => {
-    //             if import.glob {
-    //                 self.add_children_from_import_glob(item, import, parent)
-    //             } else {
-    //                 self.add_child_import_item(item, import, parent)
-    //             }
-    //         }
-    //         _ => self.add_child_item(item, None, Some(parent)),
-    //     }
-    // }
-
-    /// We need to handle `pub use foo::*` specially. In case of such wildcard
-    /// imports, `glob` will be `true` and `id` will be the module we should
-    /// import all items from, but we should NOT add the module itself.
-    // fn children_from_import_glob(
-    //     &mut self,
-    //     item: &'c Item,
-    //     import: &'c Import,
-    //     parent_path: &[IntermediatePublicItem<'c>],
-    // ) -> IntermediatePublicItem<'c> {
-    // }
-
-    /// Since public imports are part of the public API, we inline them, i.e.
-    /// replace the item corresponding to an import with the item that is
-    /// imported. If we didn't do this, publicly imported items would show up as
-    /// just e.g. `pub use some::function`, which is not sufficient for the use
-    /// cases of this tool. We want to show the actual API, and thus also show
-    /// type information! There is one exception; for re-exports of primitive
-    /// types, there is no item Id to inline with, so they remain as e.g. `pub
-    /// use my_i32` in the output.
-    // fn add_child_import_item(
-    //     &mut self,
-    //     item: &'c Item,
-    //     import: &'c Import,
-    //     parent: IntermediatePublicItem<'c>,
-    // ) -> IntermediatePublicItem<'c> {
-    // }
-
-    // fn add_child_item(
-    //     &mut self,
-    //     item: &'c Item,
-    //     overridden_name: Option<String>,
-    //     parent: Option<IntermediatePublicItem<'c>>,
-    // ) -> (IntermediatePublicItem<'c>, IntermediatePublicItem<'c>) {
-    //     let mut new_intermediate_item = IntermediatePublicItem {
-    //         item: item,
-    //         overridden_name,
-    //         parent: Box::new(parent),
-    //         children: vec![],
-    //     };
-
-    //     eprintln!("add child {:?}", item.id);
-
-    //     if let Some(child_ids) = items_in_container(item) {
-    //         for child_id in child_ids {
-    //             if let Some(child_item) = self.crate_.get_item(child_id) {
-    //                 new_intermediate_item =
-    //                     self.add_any_child_item(child_item, new_intermediate_item)
-    //             }
-    //         }
-    //     }
-
-    //     // self.id_to_items
-    //     //     .entry(&item.id)
-    //     //     .or_default()
-    //     //     .push(new_intermediate_item.clone());
-
-    //     new_intermediate_item
-    // }
-
     /// Get the rustdoc JSON item with `id`, but only if it is not already part
     /// of the path. This can happen in the case of recursive re-exports, in
     /// which case we need to break the recursion.
@@ -384,22 +271,6 @@ impl<'c> ItemProcessor<'c> {
     }
 }
 
-// impl<'c> Iterator for ItemIterator<'c> {
-//     type Item = Rc<IntermediatePublicItem<'c>>;
-
-//     fn next(&mut self) -> Option<Self::Item> {
-//         let mut result = None;
-
-//         if let Some(public_item) = self.items_left.pop() {
-//             //self.add_children_for_item(&public_item.clone());
-
-//             result = Some(public_item);
-//         }
-
-//         result
-//     }
-// }
-
 // fn all_impls(crate_: &Crate) -> impl Iterator<Item = ImplItem> {
 //     crate_.index.values().filter_map(|item| match &item.inner {
 //         ItemEnum::Impl(impl_) => Some(ImplItem {
@@ -415,16 +286,16 @@ impl<'c> ItemProcessor<'c> {
 //     })
 // }
 
-// const fn impl_kind(impl_: &Impl) -> ImplKind {
-//     let has_blanket_impl = matches!(impl_.blanket_impl, Some(_));
+const fn impl_kind(impl_: &Impl) -> ImplKind {
+    let has_blanket_impl = matches!(impl_.blanket_impl, Some(_));
 
-//     // See https://github.com/rust-lang/rust/blob/54f20bbb8a7aeab93da17c0019c1aaa10329245a/src/librustdoc/json/conversions.rs#L589-L590
-//     match (impl_.synthetic, has_blanket_impl) {
-//         (true, false) => ImplKind::AutoTrait,
-//         (false, true) => ImplKind::Blanket,
-//         _ => ImplKind::Normal,
-//     }
-// }
+    // See https://github.com/rust-lang/rust/blob/54f20bbb8a7aeab93da17c0019c1aaa10329245a/src/librustdoc/json/conversions.rs#L589-L590
+    match (impl_.synthetic, has_blanket_impl) {
+        (true, false) => ImplKind::AutoTrait,
+        (false, true) => ImplKind::Blanket,
+        _ => ImplKind::Normal,
+    }
+}
 
 // fn active_impls(all_impls: Vec<ImplItem>, options: Options) -> Impls {
 //     let mut impls = HashMap::new();
@@ -481,8 +352,8 @@ pub fn impls_for_item(item: &Item) -> Option<&[Id]> {
     }
 }
 
-pub fn public_api_in_crate(crate_: &Crate, _options: Options) -> super::PublicApi {
-    let mut item_processor = ItemProcessor::new(crate_);
+pub fn public_api_in_crate(crate_: &Crate, options: Options) -> super::PublicApi {
+    let mut item_processor = ItemProcessor::new(crate_, options);
     item_processor.add_to_work_queue(vec![], &crate_.root);
     item_processor.run();
 
