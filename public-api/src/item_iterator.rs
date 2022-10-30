@@ -19,11 +19,11 @@ enum ImplKind {
 }
 
 impl ImplKind {
-    fn is_active(&self, options: &Options) {
+    fn is_active(&self, options: &Options) -> bool {
         match self {
             ImplKind::Blanket => options.with_blanket_implementations,
             ImplKind::AutoTrait | ImplKind::Normal => true,
-        };
+        }
     }
 }
 
@@ -105,7 +105,7 @@ impl<'c> ItemProcessor<'c> {
                 }
             }
             ItemEnum::Impl(impl_) => {
-                self.process_impl_item(unprocessed_item, impl_);
+                self.process_impl_item(unprocessed_item, item, impl_);
             }
             _ => {
                 self.process_item(unprocessed_item, item);
@@ -168,8 +168,17 @@ impl<'c> ItemProcessor<'c> {
         self.finish_item(unprocessed_item, actual_item, Some(import.name.clone()));
     }
 
-    fn process_impl_item(&self, unprocessed_item: UnprocessedItem, impl_: &Impl) {
-        todo!()
+    fn process_impl_item(
+        &mut self,
+        unprocessed_item: UnprocessedItem<'c>,
+        item: &'c Item,
+        impl_: &'c Impl,
+    ) {
+        if !impl_kind(impl_).is_active(&self.options) {
+            return;
+        }
+
+        self.process_item(unprocessed_item, item);
     }
 
     fn process_item(&mut self, unprocessed_item: UnprocessedItem<'c>, item: &'c Item) {
