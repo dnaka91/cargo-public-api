@@ -1,6 +1,6 @@
 #![allow(clippy::unused_self)]
 use crate::intermediate_public_item::IntermediatePublicItem;
-use std::{cmp::Ordering, collections::HashMap, rc::Rc};
+use std::{cmp::Ordering, collections::HashMap};
 
 use rustdoc_types::{
     Abi, Constant, Crate, FnDecl, FunctionPointer, GenericArg, GenericArgs, GenericBound,
@@ -27,12 +27,13 @@ pub struct RenderingContext<'c> {
 
     /// Given a rustdoc JSON ID, keeps track of what public items that have this
     /// ID. See [`crate::item_iterator::ItemIterator::id_to_items`] for more info.
-    pub id_to_items: HashMap<&'c Id, Vec<Rc<IntermediatePublicItem<'c>>>>,
+    pub id_to_items: HashMap<&'c Id, Vec<&'c IntermediatePublicItem<'c>>>,
 }
 
 impl<'c> RenderingContext<'c> {
     #[allow(clippy::too_many_lines)]
-    pub fn token_stream(&self, item: &IntermediatePublicItem) -> Vec<Token> {
+    pub fn token_stream(&self, path: &[IntermediatePublicItem]) -> Vec<Token> {
+        let item = path.last().expect("path not empty");
         let mut tokens = vec![];
 
         for attr in &item.item.attrs {
@@ -43,12 +44,12 @@ impl<'c> RenderingContext<'c> {
         }
 
         let inner_tokens = match &item.item.inner {
-            ItemEnum::Module(_) => self.render_simple(&["mod"], &item.path()),
-            ItemEnum::ExternCrate { .. } => self.render_simple(&["extern", "crate"], &item.path()),
-            ItemEnum::Import(_) => self.render_simple(&["use"], &item.path()),
-            ItemEnum::Union(_) => self.render_simple(&["union"], &item.path()),
+            ItemEnum::Module(_) => self.render_simple(&["mod"], path),
+            ItemEnum::ExternCrate { .. } => self.render_simple(&["extern", "crate"], path),
+            ItemEnum::Import(_) => self.render_simple(&["use"], path),
+            ItemEnum::Union(_) => self.render_simple(&["union"], path),
             ItemEnum::Struct(s) => {
-                let mut output = self.render_simple(&["struct"], &item.path());
+                let mut output = self.render_simple(&["struct"], path);
                 output.extend(self.render_generics(&s.generics));
                 if let StructKind::Tuple(fields) = &s.kind {
                     output.extend(
@@ -58,18 +59,18 @@ impl<'c> RenderingContext<'c> {
                 output
             }
             ItemEnum::StructField(inner) => {
-                let mut output = self.render_simple(&["struct", "field"], &item.path());
+                let mut output = self.render_simple(&["struct", "field"], path);
                 output.extend(colon());
                 output.extend(self.render_type(inner));
                 output
             }
             ItemEnum::Enum(e) => {
-                let mut output = self.render_simple(&["enum"], &item.path());
+                let mut output = self.render_simple(&["enum"], path);
                 output.extend(self.render_generics(&e.generics));
                 output
             }
             ItemEnum::Variant(inner) => {
-                let mut output = self.render_simple(&["enum", "variant"], &item.path());
+                let mut output = self.render_simple(&["enum", "variant"], path);
                 match inner {
                     Variant::Struct { .. } => {} // Each struct field is printed individually
                     Variant::Plain(discriminant) => {
@@ -87,22 +88,22 @@ impl<'c> RenderingContext<'c> {
                 output
             }
             ItemEnum::Function(inner) => self.render_function(
-                self.render_path(&item.path()),
+                self.render_path(path),
                 &inner.decl,
                 &inner.generics,
                 &inner.header,
             ),
             ItemEnum::Method(inner) => self.render_function(
-                self.render_path(&item.path()),
+                self.render_path(path),
                 &inner.decl,
                 &inner.generics,
                 &inner.header,
             ),
-            ItemEnum::Trait(trait_) => self.render_trait(trait_, &item.path()),
-            ItemEnum::TraitAlias(_) => self.render_simple(&["trait", "alias"], &item.path()),
+            ItemEnum::Trait(trait_) => self.render_trait(trait_, path),
+            ItemEnum::TraitAlias(_) => self.render_simple(&["trait", "alias"], path),
             ItemEnum::Impl(impl_) => self.render_impl(impl_),
             ItemEnum::Typedef(inner) => {
-                let mut output = self.render_simple(&["type"], &item.path());
+                let mut output = self.render_simple(&["type"], path);
                 output.extend(self.render_generics(&inner.generics));
                 output.extend(equals());
                 output.extend(self.render_type(&inner.type_));
@@ -113,7 +114,7 @@ impl<'c> RenderingContext<'c> {
                 bounds,
                 default,
             } => {
-                let mut output = self.render_simple(&["type"], &item.path());
+                let mut output = self.render_simple(&["type"], path);
                 output.extend(self.render_generics(generics));
                 output.extend(self.render_generic_bounds(bounds));
                 if let Some(ty) = default {
@@ -122,15 +123,15 @@ impl<'c> RenderingContext<'c> {
                 }
                 output
             }
-            ItemEnum::OpaqueTy(_) => self.render_simple(&["opaque", "type"], &item.path()),
+            ItemEnum::OpaqueTy(_) => self.render_simple(&["opaque", "type"], path),
             ItemEnum::Constant(con) => {
-                let mut output = self.render_simple(&["const"], &item.path());
+                let mut output = self.render_simple(&["const"], path);
                 output.extend(colon());
                 output.extend(self.render_constant(con));
                 output
             }
             ItemEnum::AssocConst { type_, .. } => {
-                let mut output = self.render_simple(&["const"], &item.path());
+                let mut output = self.render_simple(&["const"], path);
                 output.extend(colon());
                 output.extend(self.render_type(type_));
                 output
@@ -141,20 +142,20 @@ impl<'c> RenderingContext<'c> {
                 } else {
                     vec!["static"]
                 };
-                let mut output = self.render_simple(&tags, &item.path());
+                let mut output = self.render_simple(&tags, path);
                 output.extend(colon());
                 output.extend(self.render_type(&inner.type_));
                 output
             }
-            ItemEnum::ForeignType => self.render_simple(&["type"], &item.path()),
+            ItemEnum::ForeignType => self.render_simple(&["type"], path),
             ItemEnum::Macro(_definition) => {
                 // TODO: _definition contains the whole definition, it would be really neat to get out all possible ways to invoke it
-                let mut output = self.render_simple(&["macro"], &item.path());
+                let mut output = self.render_simple(&["macro"], path);
                 output.push(Token::symbol("!"));
                 output
             }
             ItemEnum::ProcMacro(inner) => {
-                let mut output = self.render_simple(&["proc", "macro"], &item.path());
+                let mut output = self.render_simple(&["proc", "macro"], path);
                 output.pop(); // Remove name of macro to possibly wrap it in `#[]`
                 let name = Token::identifier(item.item.name.as_ref().unwrap_or(&"".to_string()));
                 match inner.kind {
@@ -213,7 +214,7 @@ impl<'c> RenderingContext<'c> {
         resolved_fields
     }
 
-    fn render_simple(&self, tags: &[&str], path: &[Rc<IntermediatePublicItem<'_>>]) -> Vec<Token> {
+    fn render_simple(&self, tags: &[&str], path: &[IntermediatePublicItem]) -> Vec<Token> {
         let mut output = pub_();
         output.extend(
             tags.iter()
@@ -224,7 +225,7 @@ impl<'c> RenderingContext<'c> {
         output
     }
 
-    fn render_path(&self, path: &[Rc<IntermediatePublicItem<'_>>]) -> Vec<Token> {
+    fn render_path(&self, path: &[IntermediatePublicItem]) -> Vec<Token> {
         let mut output = vec![];
         for item in path {
             let token_fn = if matches!(item.item.inner, ItemEnum::Function(_) | ItemEnum::Method(_))
@@ -242,6 +243,7 @@ impl<'c> RenderingContext<'c> {
             } else {
                 Token::identifier
             };
+
             if let Some(name) = item.name() {
                 output.push(token_fn(name));
                 output.push(Token::symbol("::"));
@@ -337,7 +339,7 @@ impl<'c> RenderingContext<'c> {
         }
     }
 
-    fn render_trait(&self, trait_: &Trait, path: &[Rc<IntermediatePublicItem<'_>>]) -> Vec<Token> {
+    fn render_trait(&self, trait_: &Trait, path: &[IntermediatePublicItem]) -> Vec<Token> {
         let mut output = pub_();
         if trait_.is_unsafe {
             output.extend(vec![Token::qualifier("unsafe"), ws!()]);
@@ -487,7 +489,7 @@ impl<'c> RenderingContext<'c> {
     fn render_resolved_path(&self, path: &Path) -> Vec<Token> {
         let mut output = vec![];
         if let Some(item) = self.best_item_for_id(&path.id) {
-            output.extend(self.render_path(&item.path()));
+            //output.extend(self.render_path(&item.path()));
         } else if !path.name.is_empty() {
             // If we get here it means there was no item for this Path in the
             // rustdoc JSON. Examples of when this happens:
@@ -610,6 +612,16 @@ impl<'c> RenderingContext<'c> {
 
         output.extend(self.render_where_predicates(&impl_.generics.where_predicates));
 
+        if !impl_.items.is_empty() {
+            output.extend(vec![
+                ws!(),
+                Token::symbol("{"),
+                ws!(),
+                Token::symbol("..."),
+                ws!(),
+                Token::symbol("}"),
+            ]);
+        }
         output
     }
 
@@ -891,36 +903,37 @@ impl<'c> RenderingContext<'c> {
         output
     }
 
-    fn best_item_for_id(&self, id: &'c Id) -> Option<Rc<IntermediatePublicItem<'c>>> {
-        match self.id_to_items.get(&id) {
-            None => None,
-            Some(items) => {
-                items
-                    .iter()
-                    .max_by(|a, b| {
-                        // If there is any item in the path that has been
-                        // renamed/re-exported, i.e. that is not the original
-                        // path, prefer that less than an item with a path where
-                        // all items are original.
-                        let mut ordering = match (
-                            a.path_contains_renamed_item(),
-                            b.path_contains_renamed_item(),
-                        ) {
-                            (true, false) => Ordering::Less,
-                            (false, true) => Ordering::Greater,
-                            _ => Ordering::Equal,
-                        };
+    fn best_item_for_id(&self, id: &'c Id) -> Option<&IntermediatePublicItem<'c>> {
+        None
+        // match self.id_to_items.get(&id) {
+        //     None => None,
+        //     Some(items) => {
+        //         items
+        //             .iter()
+        //             .max_by(|a, b| {
+        //                 // If there is any item in the path that has been
+        //                 // renamed/re-exported, i.e. that is not the original
+        //                 // path, prefer that less than an item with a path where
+        //                 // all items are original.
+        //                 let mut ordering = match (
+        //                     a.path_contains_renamed_item(),
+        //                     b.path_contains_renamed_item(),
+        //                 ) {
+        //                     (true, false) => Ordering::Less,
+        //                     (false, true) => Ordering::Greater,
+        //                     _ => Ordering::Equal,
+        //                 };
 
-                        // If we still can't make up our mind, go with the shortest path
-                        if ordering == Ordering::Equal {
-                            ordering = b.path().len().cmp(&a.path().len());
-                        }
+        //                 // If we still can't make up our mind, go with the shortest path
+        //                 if ordering == Ordering::Equal {
+        //                     ordering = b.path().len().cmp(&a.path().len());
+        //                 }
 
-                        ordering
-                    })
-                    .cloned()
-            }
-        }
+        //                 ordering
+        //             })
+        //             .cloned()
+        //     }
+        // }
     }
 }
 

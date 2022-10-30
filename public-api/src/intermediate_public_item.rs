@@ -8,6 +8,7 @@ use crate::{public_item::PublicItemPath, render::RenderingContext, tokens::Token
 /// It wraps a single [Item] but adds additional calculated values to make it
 /// easier to work with. Later, one [`Self`] will be converted to exactly one
 /// [`crate::PublicItem`].
+/// TODO@
 #[derive(Clone, Debug)]
 pub struct IntermediatePublicItem<'c> {
     /// The item we are effectively wrapping.
@@ -16,11 +17,6 @@ pub struct IntermediatePublicItem<'c> {
     /// If `Some`, this overrides [Item::name], which happens in the case of
     /// renamed imports (`pub use other::Item as Foo;`).
     pub overridden_name: Option<String>,
-
-    /// The parent item. If [Self::item] is e.g. an enum variant, then the
-    /// parent is an enum. We follow the chain of parents to be able to know the
-    /// correct path to an item in the output.
-    pub parent: Option<Rc<IntermediatePublicItem<'c>>>,
 }
 
 impl<'c> IntermediatePublicItem<'c> {
@@ -30,43 +26,20 @@ impl<'c> IntermediatePublicItem<'c> {
             .or(self.item.name.as_deref())
     }
 
-    #[must_use]
-    pub fn path(&self) -> Vec<Rc<IntermediatePublicItem<'c>>> {
-        let mut path = vec![];
 
-        let rc_self = Rc::new(self.clone());
+    // pub fn iter() -> ChildIter {
 
-        path.insert(0, rc_self.clone());
-
-        let mut current_item = rc_self.clone();
-        while let Some(parent) = current_item.parent.clone() {
-            path.insert(0, parent.clone());
-            current_item = parent.clone();
-        }
-
-        path
-    }
-
-    #[must_use]
-    pub fn path_vec(&self) -> PublicItemPath {
-        self.path()
-            .iter()
-            .filter_map(|i| i.name())
-            .map(ToOwned::to_owned)
-            .collect()
-    }
-
-    #[must_use]
-    pub fn path_contains_id(&self, id: &'c Id) -> bool {
-        self.path().iter().any(|m| m.item.id == *id)
-    }
-
-    #[must_use]
-    pub fn path_contains_renamed_item(&self) -> bool {
-        self.path().iter().any(|m| m.overridden_name.is_some())
-    }
-
-    pub fn render_token_stream(&self, context: &RenderingContext) -> Vec<Token> {
-        context.token_stream(self)
-    }
+    // }
 }
+
+// struct ChildIter<'a> {
+
+// }
+
+// impl<'c> Iterator for IntermediatePublicItem<'c> {
+//     type Item = &'c IntermediatePublicItem<'c>;
+
+//     fn next(&mut self) -> Option<Self::Item> {
+//         todo!()
+//     }
+// }

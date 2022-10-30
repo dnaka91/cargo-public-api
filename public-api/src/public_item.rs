@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::rc::Rc;
 
 use crate::intermediate_public_item::IntermediatePublicItem;
 use crate::render::RenderingContext;
@@ -26,16 +25,6 @@ pub struct PublicItem {
 }
 
 impl PublicItem {
-    pub(crate) fn from_intermediate_public_item(
-        context: &RenderingContext,
-        public_item: &Rc<IntermediatePublicItem<'_>>,
-    ) -> PublicItem {
-        PublicItem {
-            path: public_item.path_vec(),
-            tokens: public_item.render_token_stream(context),
-        }
-    }
-
     /// The rendered item as a stream of [`Token`]s
     pub fn tokens(&self) -> impl Iterator<Item = &Token> {
         self.tokens.iter()
