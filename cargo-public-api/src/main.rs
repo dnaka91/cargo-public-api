@@ -17,6 +17,7 @@ mod arg_types;
 mod error;
 mod git_utils;
 mod plain;
+mod published_crate;
 mod toolchain;
 
 #[derive(Parser, Debug)]
@@ -78,6 +79,12 @@ pub struct Args {
     /// Diff the public API across two different rustdoc JSON files.
     #[clap(long, min_values = 2, max_values = 2)]
     diff_rustdoc_json: Option<Vec<String>>,
+
+    /// Usage: --diff-published some-crate@1.2.3
+    ///
+    /// Diff the current API against the API in a published version.
+    #[clap(long)]
+    diff_published: Option<String>,
 
     /// Automatically resolves to either `--diff-git-checkouts` or
     /// `--diff-rustdoc-json` depending on if args ends in `.json` or not.
@@ -203,6 +210,12 @@ fn main_() -> Result<()> {
             &args,
             files.get(0).unwrap(),
             files.get(1).unwrap(),
+        )?
+    } else if let Some(package_spec) = &args.diff_published {
+        print_diff_between_two_rustdoc_json_files(
+            &args,
+            &published_crate::build_rustdoc_json(package_spec, &args)?,
+            &rustdoc_json_for_current_dir(&args)?,
         )?
     } else if let Some(rustdoc_json) = &args.rustdoc_json {
         print_public_items_from_json(&args, rustdoc_json)?

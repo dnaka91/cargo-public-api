@@ -1,3 +1,7 @@
+//! Contains the code that processes the items in the raw, deserialized rustdoc
+//! JSON, to figure out what items are part of the public API, and the path to
+//! each item.
+
 use super::intermediate_public_item::NameableItem;
 use crate::{
     crate_wrapper::CrateWrapper, intermediate_public_item::IntermediatePublicItem,
