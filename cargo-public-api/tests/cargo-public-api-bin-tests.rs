@@ -478,6 +478,9 @@ fn diff_published_smart_diff() {
     diff_published_impl("--diff");
 }
 
+/// Diff against a published crate. Note that we diff two completely unrelated
+/// libraries. But for testing purposes, we only need to test that there IS a
+/// diff. It does not matter how it looks.
 fn diff_published_impl(diff_arg: &str) {
     let mut cmd = TestCmd::new();
     cmd.arg("--color=never");
