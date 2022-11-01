@@ -4,7 +4,7 @@
 
 use crate::Args;
 use anyhow::{anyhow, Result};
-use directories::ProjectDirs;
+use dirs;
 use std::{fmt::Display, path::PathBuf};
 
 pub fn build_rustdoc_json(package_spec_str: &str, args: &Args) -> Result<PathBuf> {
@@ -31,21 +31,12 @@ pub fn build_rustdoc_json(package_spec_str: &str, args: &Args) -> Result<PathBuf
 
 /// Prefer a non-temporary dir so repeated builds can be incremental.
 fn build_dir(spec: &PackageSpec) -> PathBuf {
-    let app = "cargo-public-api";
-
-    let mut build_dir = if let Some(dirs) =
-        ProjectDirs::from("" /* qualifier */, "" /* organization */, app)
-    {
-        dirs.cache_dir().to_owned()
-    } else {
-        let mut temp_dir = std::env::temp_dir();
-        temp_dir.push(app);
-        temp_dir
-    };
-
+    let mut build_dir = dirs::cache_dir()
+        .to_owned()
+        .unwrap_or_else(|| std::env::temp_dir());
+    build_dir.push("cargo-public-api");
     build_dir.push("build-root-for-published-crates");
     build_dir.push(spec.as_dir_name());
-
     build_dir
 }
 
