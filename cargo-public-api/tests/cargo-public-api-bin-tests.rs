@@ -469,6 +469,36 @@ fn diff_public_items_from_files_impl(diff_arg: &str) {
 }
 
 #[test]
+fn diff_published() {
+    diff_published_impl("--diff-published");
+}
+
+#[test]
+fn diff_published_smart_diff() {
+    diff_published_impl("--diff");
+}
+
+fn diff_published_impl(diff_arg: &str) {
+    let mut cmd = TestCmd::new();
+    let test_repo_path = cmd.test_repo_path().to_owned();
+    let branch_before = git_utils::current_branch(&test_repo_path).unwrap().unwrap();
+    cmd.arg("--color=never");
+    cmd.arg(diff_arg);
+    cmd.arg("v0.2.0");
+    cmd.arg("v0.3.0");
+    cmd.assert()
+        .stdout_or_bless("./tests/expected-output/diff_published.txt")
+        .success();
+    let branch_after = git_utils::current_branch(&test_repo_path).unwrap().unwrap();
+
+    // Diffing does a git checkout of the commits to diff. Afterwards the
+    // original branch shall be restored to minimize user disturbance.
+    assert_eq!(branch_before, branch_after);
+}
+
+
+
+#[test]
 fn list_public_items_from_json_file() {
     let json_file = rustdoc_json_path_for_crate("../test-apis/example_api-v0.3.0");
     let mut cmd = Command::cargo_bin("cargo-public-api").unwrap();
