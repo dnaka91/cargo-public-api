@@ -292,7 +292,7 @@ fn print_public_items(
 
 fn print_diff_between_two_commits(args: &Args, commits: &[String]) -> Result<PostProcessing> {
     let old_commit = commits.get(0).expect("clap makes sure first commit exist");
-    let new_commit = commits.get(1).expect("clap makes sure second commit exist");
+    let new_commit = commits.get(1).expect("you must provide TWO commits to diff between!");
 
     // Validate provided commits and resolve relative refs like HEAD to actual commits
     let old_commit = git_utils::resolve_ref(&args.git_root()?, old_commit)?;
