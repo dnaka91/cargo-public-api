@@ -87,7 +87,8 @@ pub struct Args {
     diff_published: Option<String>,
 
     /// Automatically resolves to either `--diff-git-checkouts` or
-    /// `--diff-rustdoc-json` depending on if args ends in `.json` or not.
+    /// `--diff-rustdoc-json` or `--diff-rustdoc-json` depending on if args ends
+    /// in `.json` or not, or if they contain `@`.
     ///
     /// Examples:
     ///
@@ -105,7 +106,15 @@ pub struct Args {
     ///
     ///   cargo public-api --diff-rustdoc-json v0.2.0.json v0.3.0.json
     ///
-    #[clap(long, min_values = 2, max_values = 2)]
+    /// and
+    ///
+    ///   cargo public-api --diff some-crate@1.2.3
+    ///
+    /// resolves to
+    ///
+    ///   cargo public-api --diff-published some-crate@1.2.3
+    ///
+    #[clap(long, min_values = 1, max_values = 2)]
     diff: Option<Vec<String>>,
 
     /// Usage: --rustdoc-json <RUSTDOC_JSON_PATH>
@@ -378,6 +387,8 @@ fn resolve_diff_shorthand(args: &mut Args) {
 
         if diff_args.iter().all(is_json_file) {
             args.diff_rustdoc_json = Some(diff_args);
+        } else if diff_args.iter().any(|a| a.contains('@')) {
+            args.diff_published = diff_args.first().cloned();
         } else {
             args.diff_git_checkouts = Some(diff_args);
         }
