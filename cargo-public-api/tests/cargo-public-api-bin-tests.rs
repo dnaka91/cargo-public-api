@@ -480,23 +480,13 @@ fn diff_published_smart_diff() {
 
 fn diff_published_impl(diff_arg: &str) {
     let mut cmd = TestCmd::new();
-    let test_repo_path = cmd.test_repo_path().to_owned();
-    let branch_before = git_utils::current_branch(&test_repo_path).unwrap().unwrap();
     cmd.arg("--color=never");
     cmd.arg(diff_arg);
-    cmd.arg("v0.2.0");
-    cmd.arg("v0.3.0");
+    cmd.arg("rustdoc-json@0.1.0");
     cmd.assert()
         .stdout_or_bless("./tests/expected-output/diff_published.txt")
         .success();
-    let branch_after = git_utils::current_branch(&test_repo_path).unwrap().unwrap();
-
-    // Diffing does a git checkout of the commits to diff. Afterwards the
-    // original branch shall be restored to minimize user disturbance.
-    assert_eq!(branch_before, branch_after);
 }
-
-
 
 #[test]
 fn list_public_items_from_json_file() {
