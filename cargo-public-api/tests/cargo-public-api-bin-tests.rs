@@ -64,6 +64,8 @@ fn list_public_items_with_lint_error() {
         .success();
 }
 
+// TODO: Test --with-indentation
+
 // FIXME: This tests is ignored in CI due to some unknown issue with windows
 #[test]
 #[cfg_attr(all(target_family = "windows", in_ci), ignore)]
